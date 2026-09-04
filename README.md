@@ -1,9 +1,9 @@
 # STVN Chess Reference Application (`stvnadore-app-showcase-chess`)
 
-[![STVN Chess Reference Application](https://img.shields.io/badge/STVN-1.0.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/tree/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
+[![STVN Chess Reference Application](https://img.shields.io/badge/STVN-1.0.2-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
 [![Java 21 LTS](https://img.shields.io/badge/Java-21%20LTS-blue.svg)](https://openjdk.org/projects/jdk/21/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.0.0--SNAPSHOT-orange.svg)]()
+[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.0.2-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
 [![Zero-Trust](https://img.shields.io/badge/Zero--Trust-Strategy%200x07%20CAS-success.svg)]()
 
 Production reference application demonstrating **STVN (Strongly Typed Value Notation)** binary encoding, zero-trust schema validation, FIDE-compliant chess rule evaluation, wire format efficiency benchmarking, and an interactive terminal ASCII/Unicode visualizer.

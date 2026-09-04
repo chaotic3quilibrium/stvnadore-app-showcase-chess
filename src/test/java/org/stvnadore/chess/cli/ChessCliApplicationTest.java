@@ -2,6 +2,7 @@ package org.stvnadore.chess.cli;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.stvnadore.chess.util.SystemErrCapture;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,12 +12,11 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ChessCliApplicationTest {
 
   @Test
-  @DisplayName("CLI commands execute with correct exit status codes (0, 1, 2, 3)")
-  void testCliCommandsAndExitCodes() throws Exception {
+  @DisplayName("Valid CLI commands execute successfully with exit code 0")
+  void testSuccessfulLifecycleCommands() throws Exception {
     Path tempBinary = Files.createTempFile("chess_sim_", ".stvn_bin");
     Path tempPgn = Files.createTempFile("opera_", ".pgn");
     Path tempPgnOutput = Files.createTempFile("opera_out_", ".stvn_bin");
-    Path tempIllegalPgn = Files.createTempFile("illegal_", ".pgn");
 
     try {
       // 1. Execute simulate -> Exit Code 0
@@ -63,26 +63,66 @@ public class ChessCliApplicationTest {
       int benchCode = ChessCliApplication.execute(new String[]{"benchmark"});
       assertEquals(0, benchCode);
 
-      // 7. Invalid CLI command or missing args -> Exit Code 1
-      int invalidCode = ChessCliApplication.execute(new String[]{"unknown_cmd"});
-      assertEquals(1, invalidCode);
+    } finally {
+      Files.deleteIfExists(tempBinary);
+      Files.deleteIfExists(tempPgn);
+      Files.deleteIfExists(tempPgnOutput);
+    }
+  }
 
-      int missingFileCode = ChessCliApplication.execute(new String[]{"verify", "non_existent_file.stvn_bin"});
-      assertEquals(1, missingFileCode);
+  @Test
+  @DisplayName("Unrecognized CLI command emits error to System.err and returns exit code 1")
+  void testUnknownCommandRejection() {
+    try (SystemErrCapture capture = SystemErrCapture.mute()) {
+      int exitCode = ChessCliApplication.execute(new String[]{"unknown_cmd"});
+      assertEquals(1, exitCode);
+      capture.assertContains("Unknown command: unknown_cmd");
+    }
+  }
 
-      // 8. Replaying poisoned binary -> Exit Code 2
+  @Test
+  @DisplayName("Verification of non-existent binary file emits error to System.err and returns exit code 1")
+  void testMissingFileRejection() {
+    try (SystemErrCapture capture = SystemErrCapture.mute()) {
+      int exitCode = ChessCliApplication.execute(new String[]{"verify", "non_existent_file.stvn_bin"});
+      assertEquals(1, exitCode);
+      capture.assertContains("File not found:");
+      capture.assertContains("Error executing command 'verify':");
+    }
+  }
+
+  @Test
+  @DisplayName("Replaying tampered zero-trust payload emits security alert to System.err and returns exit code 2")
+  void testPoisonedPayloadRejection() throws Exception {
+    Path tempBinary = Files.createTempFile("poison_source_", ".stvn_bin");
+    Path tempPoisonFile = Files.createTempFile("poison_target_", ".stvn_bin");
+
+    try {
+      // Generate a valid binary first
+      assertEquals(0, ChessCliApplication.execute(new String[]{"simulate", tempBinary.toString()}));
+
+      // Tamper with header SHA-256 digest
       byte[] validBytes = Files.readAllBytes(tempBinary);
       byte[] poisonedBytes = org.stvnadore.chess.codec.ChessBinaryCodec.poisonPayload(validBytes);
-      Path tempPoisonFile = Files.createTempFile("poison_target_", ".stvn_bin");
-      try {
-        Files.write(tempPoisonFile, poisonedBytes);
-        int poisonedExitCode = ChessCliApplication.execute(new String[]{"replay", tempPoisonFile.toString()});
-        assertEquals(2, poisonedExitCode);
-      } finally {
-        Files.deleteIfExists(tempPoisonFile);
-      }
+      Files.write(tempPoisonFile, poisonedBytes);
 
-      // 9. Importing illegal PGN moves -> Exit Code 3
+      try (SystemErrCapture capture = SystemErrCapture.mute()) {
+        int exitCode = ChessCliApplication.execute(new String[]{"replay", tempPoisonFile.toString()});
+        assertEquals(2, exitCode);
+        capture.assertContains("SECURITY ALERT: Poisoned registry payload detected!");
+        capture.assertContains("Schema hash mismatch!");
+      }
+    } finally {
+      Files.deleteIfExists(tempBinary);
+      Files.deleteIfExists(tempPoisonFile);
+    }
+  }
+
+  @Test
+  @DisplayName("Importing PGN with illegal moves emits engine error to System.err and returns exit code 3")
+  void testIllegalPgnMoveRejection() throws Exception {
+    Path tempIllegalPgn = Files.createTempFile("illegal_", ".pgn");
+    try {
       String illegalPgnContent = """
           [Event "Illegal Move"]
           [White "W"]
@@ -92,13 +132,13 @@ public class ChessCliApplicationTest {
           1. e4 e5 2. Ke2 Ke7 3. Ke3 Ke6 4. Kd4 c5+ 5. Kxc5 d5 6. Kb5 Qb6# 7. Ka5 Qxa2 *
           """;
       Files.writeString(tempIllegalPgn, illegalPgnContent);
-      int illegalPgnCode = ChessCliApplication.execute(new String[]{"pgn-import", tempIllegalPgn.toString()});
-      assertEquals(3, illegalPgnCode);
 
+      try (SystemErrCapture capture = SystemErrCapture.mute()) {
+        int exitCode = ChessCliApplication.execute(new String[]{"pgn-import", tempIllegalPgn.toString()});
+        assertEquals(3, exitCode);
+        capture.assertContains("CHESS ENGINE ERROR: Illegal move:");
+      }
     } finally {
-      Files.deleteIfExists(tempBinary);
-      Files.deleteIfExists(tempPgn);
-      Files.deleteIfExists(tempPgnOutput);
       Files.deleteIfExists(tempIllegalPgn);
     }
   }
