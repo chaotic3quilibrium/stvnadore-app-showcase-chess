@@ -1,6 +1,6 @@
 # STVN Chess Reference Application (`stvnadore-app-showcase-chess`)
 
-[![STVN Chess Reference Application](https://img.shields.io/badge/STVN-1.0.2-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
+[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-1.0.3-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
 [![Java 21 LTS](https://img.shields.io/badge/Java-21%20LTS-blue.svg)](https://openjdk.org/projects/jdk/21/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![STVN Core](https://img.shields.io/badge/STVN%20Core-1.0.2-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
@@ -10,7 +10,7 @@ Production reference application demonstrating **STVN (Strongly Typed Value Nota
 
 ---
 
-- Version: 1.0.0 - 2026.08.31
+- Version: 1.0.3 - 2026.09.04
 
 ---
 
