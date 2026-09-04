@@ -6,7 +6,7 @@
 
     <groupId>io.github.chaotic3quilibrium</groupId>
     <artifactId>stvnadore-app-showcase-chess</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>STVN Showcase - Chess Reference Application</name>

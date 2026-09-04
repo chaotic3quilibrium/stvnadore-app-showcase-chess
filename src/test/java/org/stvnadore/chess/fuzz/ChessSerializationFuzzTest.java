@@ -111,7 +111,11 @@ public class ChessSerializationFuzzTest {
   @Test
   @DisplayName("Negative schema constraints reject TurnNumber > 1023 (Uint10 overflow)")
   void testTurnNumberOverflowRejection() {
-    String docTurn1024 = "{\n  " + schemaContent + "\n  :type :GameHistory\n  :body (\n" +
+    String defsOnly = schemaContent.trim();
+    if (defsOnly.startsWith("{")) {
+      defsOnly = defsOnly.substring(1, defsOnly.lastIndexOf('}'));
+    }
+    String docTurn1024 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g-overflow\" \"W\" \"B\" [ ( 1024 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
     assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docTurn1024));
   }
@@ -119,7 +123,11 @@ public class ChessSerializationFuzzTest {
   @Test
   @DisplayName("Negative schema constraints reject Halfmoves > 100 (Uint7 constraint)")
   void testHalfmovesOverflowRejection() {
-    String docHalfmove101 = "{\n  " + schemaContent + "\n  :type :GameHistory\n  :body (\n" +
+    String defsOnly = schemaContent.trim();
+    if (defsOnly.startsWith("{")) {
+      defsOnly = defsOnly.substring(1, defsOnly.lastIndexOf('}'));
+    }
+    String docHalfmove101 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g-halfmove\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 101 ) \"fen\" 0 ) ] #None\n  )\n}";
     assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docHalfmove101));
   }
