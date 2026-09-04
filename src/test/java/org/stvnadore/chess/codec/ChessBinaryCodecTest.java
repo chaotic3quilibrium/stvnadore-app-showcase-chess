@@ -68,18 +68,23 @@ public class ChessBinaryCodecTest {
   @Test
   @DisplayName("Negative schema constraints reject invalid bounds and illegal states")
   void testNegativeSchemaConstraints() {
+    String defsOnly = rawSchemaText.trim();
+    if (defsOnly.startsWith("{")) {
+      defsOnly = defsOnly.substring(1, defsOnly.lastIndexOf('}'));
+    }
+
     // 1. Halfmoves > 100
-    String docHalfmoves101 = "{\n  " + rawSchemaText + "\n  :type :GameHistory\n  :body (\n" +
+    String docHalfmoves101 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 101 ) \"fen\" 0 ) ] #None\n  )\n}";
     assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docHalfmoves101));
 
     // 2. Promotion to #KING (impossible state)
-    String docPromoKing = "{\n  " + rawSchemaText + "\n  :type :GameHistory\n  :body (\n" +
+    String docPromoKing = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 7 ) ( #E 8 ) #Some #KING #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
     assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docPromoKing));
 
     // 3. Rank = 9 (out of 1..8 range)
-    String docRank9 = "{\n  " + rawSchemaText + "\n  :type :GameHistory\n  :body (\n" +
+    String docRank9 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 9 ) ( #E 4 ) #None #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
     assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docRank9));
   }

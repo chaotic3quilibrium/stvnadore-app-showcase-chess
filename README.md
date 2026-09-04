@@ -102,37 +102,39 @@ flowchart TD
 The canonical schema definition is located at `src/main/resources/schemas/chess_turn.stvn_inclf`. STVN minimizes wire footprint by packing domain-constrained numeric types and enums to their exact required bit widths:
 
 ```stvn
-// chess_turn.stvn_inclf
-:defs {
-  // --- Board Coordinates & Pieces ---
-  :File             :Enum [ #A #B #C #D #E #F #G #H ]
-  :Rank             { #minIncl 1 #maxIncl 8 } :Uint4
-  :Square           :Tuple( :File :Rank )
+{
+  // chess_turn.stvn_inclf
+  :defs {
+    // --- Board Coordinates & Pieces ---
+    :File             :Enum [ #A #B #C #D #E #F #G #H ]
+    :Rank             { #minIncl 1 #maxIncl 8 } :Uint4
+    :Square           :Tuple( :File :Rank )
 
-  :Color            :Enum [ #WHITE #BLACK ]
-  :PieceRole        :Enum [ #PAWN #KNIGHT #BISHOP #ROOK #QUEEN #KING ]
-  :Piece            :Tuple( :Color :PieceRole )
+    :Color            :Enum [ #WHITE #BLACK ]
+    :PieceRole        :Enum [ #PAWN #KNIGHT #BISHOP #ROOK #QUEEN #KING ]
+    :Piece            :Tuple( :Color :PieceRole )
 
-  // --- Move Semantics & Promotion Rules ---
-  :PromotionRole    :Enum [ #KNIGHT #BISHOP #ROOK #QUEEN ]
-  :PromotionOption  :Option( :PromotionRole )
-  :IsCapture        :Boolean
-  :HalfmovesSincePawnOrCapture { #maxIncl 100 } :Uint7
-  :Move             :Tuple( :Square :Square :PromotionOption :IsCapture :HalfmovesSincePawnOrCapture )
+    // --- Move Semantics & Promotion Rules ---
+    :PromotionRole    :Enum [ #KNIGHT #BISHOP #ROOK #QUEEN ]
+    :PromotionOption  :Option( :PromotionRole )
+    :IsCapture        :Boolean
+    :HalfmovesSincePawnOrCapture { #maxIncl 100 } :Uint7
+    :Move             :Tuple( :Square :Square :PromotionOption :IsCapture :HalfmovesSincePawnOrCapture )
 
-  // --- Turn Evaluation & State Tracking ---
-  :TurnNumber       { #minIncl 1 } :Uint10
-  :ForsythEdwardsNotation :String
-  :CentipawnEvaluation :Int16
-  :TurnState        :Tuple( :TurnNumber :Color :Move :ForsythEdwardsNotation :CentipawnEvaluation )
+    // --- Turn Evaluation & State Tracking ---
+    :TurnNumber       { #minIncl 1 } :Uint10
+    :ForsythEdwardsNotation :String
+    :CentipawnEvaluation :Int16
+    :TurnState        :Tuple( :TurnNumber :Color :Move :ForsythEdwardsNotation :CentipawnEvaluation )
 
-  // --- Match Metadata & Outcomes ---
-  :MatchId          :String
-  :WhitePlayer      :String
-  :BlackPlayer      :String
-  :TerminalOutcome  :Enum [ #WHITE_WIN #BLACK_WIN #DRAW ]
-  :MatchResult      :Option( :TerminalOutcome )
-  :GameHistory      :Tuple( :MatchId :WhitePlayer :BlackPlayer :Seq( :TurnState ) :MatchResult )
+    // --- Match Metadata & Outcomes ---
+    :MatchId          :String
+    :WhitePlayer      :String
+    :BlackPlayer      :String
+    :TerminalOutcome  :Enum [ #WHITE_WIN #BLACK_WIN #DRAW ]
+    :MatchResult      :Option( :TerminalOutcome )
+    :GameHistory      :Tuple( :MatchId :WhitePlayer :BlackPlayer :Seq( :TurnState ) :MatchResult )
+  }
 }
 ```
 
