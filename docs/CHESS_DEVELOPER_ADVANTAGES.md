@@ -3,13 +3,13 @@
 **Document ID**: `STVN-GUIDE-CHESS-01`  
 **Status**: Reference Architecture & Performance Guide  
 **Version**: 1.0.0  
-**Target Repository**: `ij_stvnadore_example_chess`
+**Target Repository**: `stvnadore-app-showcase-chess`
 
 ---
 
 ## 1. Executive Summary
 
-The `ij_stvnadore_example_chess` reference application demonstrates how Strongly Typed Value Notation (STVN) serves as an optimal wire format and runtime domain representation for complex game engines, machine learning pipelines, and distributed state replication.
+The `stvnadore-app-showcase-chess` reference application demonstrates how Strongly Typed Value Notation (STVN) serves as an optimal wire format and runtime domain representation for complex game engines, machine learning pipelines, and distributed state replication.
 
 Compared to legacy representations (JSON, XML, Protocol Buffers, FlatBuffers, and custom binary formats), STVN provides:
 1. **Zero-Copy Binary Performance**: Direct memory access via Java 21 Memory Segments and `StvnBinaryDecoder`.
