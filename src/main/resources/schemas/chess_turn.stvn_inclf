@@ -11,7 +11,7 @@
     :Piece            :Tuple( :Color :PieceRole )
 
     // --- Move Semantics & Promotion Rules ---
-    :PromotionRole    :Enum [ #KNIGHT #BISHOP #ROOK #QUEEN ]
+    :PromotionRole    { #filterExcl [ #PAWN #KING ] } :PieceRole
     :PromotionOption  :Option( :PromotionRole )
     :IsCapture        :Boolean
     :HalfmovesSincePawnOrCapture { #maxIncl 100 } :Uint7

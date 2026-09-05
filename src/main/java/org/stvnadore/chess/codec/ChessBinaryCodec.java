@@ -7,13 +7,16 @@ import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
 import org.stvnadore.core.binary.StvnSchemaHasher;
 import org.stvnadore.core.binary.exceptions.PoisonedRegistryPayloadException;
+import org.stvnadore.core.binary.readers.StvnTupleReader;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.zip.CRC32C;
 
 /**
  * High-performance binary codec for STVN Chess Game states utilizing Strategy 0x07 (ExplicitSha256).
@@ -62,17 +65,30 @@ public class ChessBinaryCodec {
   }
 
   /**
-   * Encodes a GameHistory domain record into an STVN binary byte buffer using Strategy 0x07.
+   * Encodes a GameHistory domain record into an STVN binary byte buffer using Strategy 0x07
+   * and appends a 4-byte CRC-32C trailer framing.
    *
    * @param game the game history to encode
    * @return read-only little-endian ByteBuffer containing binary payload
    */
   public ByteBuffer encode(GameHistory game) {
+    return encode(game, true);
+  }
+
+  /**
+   * Encodes a GameHistory domain record into an STVN binary byte buffer using Strategy 0x07
+   * with optional CRC-32C trailer framing.
+   *
+   * @param game             the game history to encode
+   * @param hasTrailerCrc32c if true, appends 4-byte CRC-32C trailer and sets Bit 7 of Byte 4
+   * @return read-only little-endian ByteBuffer containing binary payload
+   */
+  public ByteBuffer encode(GameHistory game, boolean hasTrailerCrc32c) {
     Objects.requireNonNull(game, "game must not be null");
 
     StvnValue ast = ChessAstMapper.toStvnAst(game, schemaSourceText);
     var strategy = new SchemaIdentityStrategy.ExplicitSha256(expectedSha256Digest);
-    var encoder = new StvnBinaryEncoder(true, strategy);
+    var encoder = new StvnBinaryEncoder(true, strategy, hasTrailerCrc32c);
     return encoder.encode(ast);
   }
 
@@ -94,6 +110,18 @@ public class ChessBinaryCodec {
   }
 
   /**
+   * Opens a zero-copy root tuple reader over an STVN binary byte buffer.
+   *
+   * @param buffer binary byte buffer
+   * @return a zero-copy {@link StvnTupleReader} for direct memory inspection
+   */
+  public StvnTupleReader openRootTuple(ByteBuffer buffer) {
+    Objects.requireNonNull(buffer, "buffer must not be null");
+    var rootPointer = StvnBinaryDecoder.open(buffer);
+    return StvnBinaryDecoder.readRootTuple(rootPointer, Optional.of(resolvedSchema));
+  }
+
+  /**
    * Injects corruption into a binary payload by flipping bytes in the SHA-256 header hash.
    *
    * @param validPayload original valid byte array
@@ -107,6 +135,13 @@ public class ChessBinaryCodec {
     byte[] corrupted = validPayload.clone();
     // Offset 5 is the first byte of the 32-byte SHA-256 digest in Control Byte 0x07
     corrupted[5] = (byte) (corrupted[5] ^ 0xFF);
+    // If CRC-32C trailer is enabled (Byte 4 Bit 7 == 1), recompute trailer so transport passes
+    if ((corrupted[4] & (byte) 0x80) != 0 && corrupted.length >= 41) {
+      CRC32C crc = new CRC32C();
+      crc.update(corrupted, 0, corrupted.length - 4);
+      int newCrc = (int) crc.getValue();
+      ByteBuffer.wrap(corrupted).order(ByteOrder.LITTLE_ENDIAN).putInt(corrupted.length - 4, newCrc);
+    }
     return corrupted;
   }
 
