@@ -1,16 +1,16 @@
 # STVN Chess Reference Application (`stvnadore-app-showcase-chess`)
 
-[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-1.1.0--SNAPSHOT-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
+[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-1.1.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
 [![Java 21 LTS](https://img.shields.io/badge/Java-21%20LTS-blue.svg)](https://openjdk.org/projects/jdk/21/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.1.0--SNAPSHOT-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
+[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.1.0-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
 [![Zero-Trust](https://img.shields.io/badge/Zero--Trust-Strategy%200x87%20CRC32C-success.svg)]()
 
 Production reference application demonstrating STVN binary encoding, zero-trust schema validation, CRC-32C trailer framing, FIDE-compliant chess rule evaluation, wire format efficiency benchmarking, and an interactive terminal visualizer.
 
 ---
 
-- Version: 1.1.0-SNAPSHOT - 2026.09.05
+- Version: 1.1.0 - 2026.09.06
 
 ---
 
@@ -41,6 +41,9 @@ Production reference application demonstrating STVN binary encoding, zero-trust 
     * [REALLY HATE the GNU AFFERO GENERAL PUBLIC LICENSE, a.k.a. AGPLv3?](#really-hate-the-gnu-affero-general-public-license-aka-agplv3)
     * [FYI, I'd prefer to move stvnadore-app-showcase-chess to an Apache 2.0 license](#fyi-id-prefer-to-move-stvnadore-app-showcase-chess-to-an-apache-20-license)
     * [I'm not looking to win the lottery, I just don't want to work for free](#im-not-looking-to-win-the-lottery-i-just-dont-want-to-work-for-free)
+* [Version History](#version-history)
+  * [v1.1.0](#v110)
+  * [v1.0.2](#v102)
 <!-- TOC -->
 
 ---
@@ -140,18 +143,18 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
 
 ### Bit-Width Allocation Rationale
 
-| Type Name                      | STVN Type  | Valid Range                         | Wire Bits | Engineering Rationale                                                                                                                                                                                                                                    |
-|:-------------------------------|:-----------|:------------------------------------|:----------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `:Rank`                        | `Uint4`    | $1 \dots 8$                         | 4 bits    | Standard chessboard ranks span 1 to 8. A 4-bit unsigned integer supports 16 states ($0 \dots 15$), tightly containing 8 ranks without wasting high-order bits.                                                                                           |
-| `:HalfmovesSincePawnOrCapture` | `Uint7`    | $0 \dots 100$                       | 7 bits    | FIDE Article 9.3 (50-move rule) triggers after 50 full moves (100 plies) without pawn move or capture. `Uint7` ($0 \dots 127$) precisely bounds the 100-ply limit.                                                                                       |
-| `:TurnNumber`                  | `Uint10`   | $1 \dots 1023$                      | 10 bits   | Classical chess matches average 40–80 plies; the longest historical tournament match was 538 plies (Nikolić vs. Arsović, 1989). `Uint10` ($0 \dots 1023$) provides 1.9x safety margin over the longest historical game while avoiding 16-bit allocation. |
-| `:CentipawnEvaluation`         | `Int16`    | $-32,768 \dots 32,767$              | 16 bits   | Engine evaluations are expressed in centipawns ($100 = 1.0\text{ pawn}$). Positional advantages range between $\pm 1,500$; mate scores use sentinels ($\pm 10,000$). `Int16` covers all evaluations without allocating 32 bits.                          |
-| `:File`                        | `Enum [8]` | `#A` to `#H`                        | 3 bits    | 8 board files fit within a 3-bit discriminant.                                                                                                                                                                                                           |
-| `:Color`                       | `Enum [2]` | `#WHITE`, `#BLACK`                  | 1 bit     | 2 player colors fit in a single bit.                                                                                                                                                                                                                     |
-| `:PieceRole`                   | `Enum [6]` | `#PAWN` to `#KING`                  | 3 bits    | 6 piece roles fit in a 3-bit discriminant.                                                                                                                                                                                                               |
-| `:PromotionRole`               | `PieceRole` (Subset) | `#KNIGHT` to `#QUEEN`     | 3 bits    | Nominal subset filtering (`#filterExcl [ #PAWN #KING ]`) excludes pawn and king, preserving root ordinals.                                                                                                                                             |
-| `:IsCapture`                   | `Boolean`  | `#TRUE`, `#FALSE`                   | 1 bit     | Binary capture flag.                                                                                                                                                                                                                                     |
-| `:TerminalOutcome`             | `Enum [3]` | `#WHITE_WIN`, `#BLACK_WIN`, `#DRAW` | 2 bits    | 3 terminal outcome variants fit in 2 bits.                                                                                                                                                                                                               |
+| Type Name                      | STVN Type            | Valid Range                         | Wire Bits | Engineering Rationale                                                                                                                                                                                                                                    |
+|:-------------------------------|:---------------------|:------------------------------------|:----------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `:Rank`                        | `Uint4`              | $1 \dots 8$                         | 4 bits    | Standard chessboard ranks span 1 to 8. A 4-bit unsigned integer supports 16 states ($0 \dots 15$), tightly containing 8 ranks without wasting high-order bits.                                                                                           |
+| `:HalfmovesSincePawnOrCapture` | `Uint7`              | $0 \dots 100$                       | 7 bits    | FIDE Article 9.3 (50-move rule) triggers after 50 full moves (100 plies) without pawn move or capture. `Uint7` ($0 \dots 127$) precisely bounds the 100-ply limit.                                                                                       |
+| `:TurnNumber`                  | `Uint10`             | $1 \dots 1023$                      | 10 bits   | Classical chess matches average 40–80 plies; the longest historical tournament match was 538 plies (Nikolić vs. Arsović, 1989). `Uint10` ($0 \dots 1023$) provides 1.9x safety margin over the longest historical game while avoiding 16-bit allocation. |
+| `:CentipawnEvaluation`         | `Int16`              | $-32,768 \dots 32,767$              | 16 bits   | Engine evaluations are expressed in centipawns ($100 = 1.0\text{ pawn}$). Positional advantages range between $\pm 1,500$; mate scores use sentinels ($\pm 10,000$). `Int16` covers all evaluations without allocating 32 bits.                          |
+| `:File`                        | `Enum [8]`           | `#A` to `#H`                        | 3 bits    | 8 board files fit within a 3-bit discriminant.                                                                                                                                                                                                           |
+| `:Color`                       | `Enum [2]`           | `#WHITE`, `#BLACK`                  | 1 bit     | 2 player colors fit in a single bit.                                                                                                                                                                                                                     |
+| `:PieceRole`                   | `Enum [6]`           | `#PAWN` to `#KING`                  | 3 bits    | 6 piece roles fit in a 3-bit discriminant.                                                                                                                                                                                                               |
+| `:PromotionRole`               | `PieceRole` (Subset) | `#KNIGHT` to `#QUEEN`               | 3 bits    | Nominal subset filtering (`#filterExcl [ #PAWN #KING ]`) excludes pawn and king, preserving root ordinals.                                                                                                                                               |
+| `:IsCapture`                   | `Boolean`            | `#TRUE`, `#FALSE`                   | 1 bit     | Binary capture flag.                                                                                                                                                                                                                                     |
+| `:TerminalOutcome`             | `Enum [3]`           | `#WHITE_WIN`, `#BLACK_WIN`, `#DRAW` | 2 bits    | 3 terminal outcome variants fit in 2 bits.                                                                                                                                                                                                               |
 
 ---
 
@@ -351,3 +354,18 @@ Please email: <jim.oflaherty.jr+sacrml@gmail.com>, letting us know what license 
 ---
 
 ### I'm not looking to win the lottery, I just don't want to work for free
+
+---
+
+# Version History
+
+## v1.1.0
+
+- 2026.09.06
+- Implemented enum subset filtering with transitive chaining
+- Added Control Byte 4 bitwise partitioning (1:3:4) for CRC-32C, SchemaIdentityStrategy, and BinaryEncodingStrategy
+
+## v1.0.2
+
+- 2026.09.04
+- Initial release across all four repositories

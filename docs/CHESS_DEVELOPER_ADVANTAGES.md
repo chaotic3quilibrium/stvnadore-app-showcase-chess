@@ -1,8 +1,8 @@
 # STVN Reference Implementation: Chess AI Developer Advantages
 
-**Document ID**: `STVN-GUIDE-CHESS-01`  
+**Document ID**: `STVN-GUIDE-CHESS-01`
 **Status**: Reference Architecture & Performance Guide  
-**Version**: 1.1.0-SNAPSHOT  
+**Version**: 1.1.0
 **Target Repository**: `stvnadore-app-showcase-chess`
 
 ---
