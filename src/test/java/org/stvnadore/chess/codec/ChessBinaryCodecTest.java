@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.stvnadore.chess.domain.*;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.binary.exceptions.PoisonedRegistryPayloadException;
+import org.stvnadore.core.binary.readers.StvnTupleReader;
 import org.stvnadore.core.validation.MalformedPayloadException;
 
 import java.io.InputStream;
@@ -43,10 +44,47 @@ public class ChessBinaryCodecTest {
 
     ByteBuffer buffer = codec.encode(original);
     assertNotNull(buffer);
-    assertTrue(buffer.remaining() > 37, "Encoded binary should contain header and payload");
+    assertTrue(buffer.remaining() > 41, "Encoded binary should contain 37B header, payload, and 4B CRC trailer");
+
+    // Assert Byte 4 Bit 7 is set (0x87 for Strategy 0x07 with CRC-32C trailer)
+    byte controlByte = buffer.get(4);
+    assertEquals((byte) 0x87, controlByte, "Control byte must pack Bit 7 (CRC-32C) and Strategy 0x07");
 
     GameHistory decoded = codec.decode(buffer);
     assertEquals(original, decoded);
+  }
+
+  @Test
+  @DisplayName("Zero-copy flyweight reader inspects GameHistory root tuple without heap deserialization")
+  void testZeroCopyRootTupleReading() {
+    Move move = new Move(Square.fromAlgebraic("e2"), Square.fromAlgebraic("e4"), Optional.empty(), false, 0);
+    TurnState turn = new TurnState(1, Piece.PieceColor.WHITE, move, "fen-zero-copy", 15);
+    GameHistory original = new GameHistory("game-zc-01", "Magnus", "Hikaru", List.of(turn), Optional.empty());
+
+    ByteBuffer buffer = codec.encode(original);
+    StvnTupleReader reader = codec.openRootTuple(buffer);
+
+    assertEquals(5, reader.size(), "GameHistory tuple must contain exactly 5 positional elements");
+    assertEquals("game-zc-01", reader.getString(0), "Field 0 must match MatchId");
+    assertEquals("Magnus", reader.getString(1), "Field 1 must match WhitePlayer");
+    assertEquals("Hikaru", reader.getString(2), "Field 2 must match BlackPlayer");
+  }
+
+  @Test
+  @DisplayName("Corrupting CRC-32C trailer fails fast with MalformedPayloadException")
+  void testCorruptedCrc32cTrailerRejection() {
+    Move move = new Move(Square.fromAlgebraic("e2"), Square.fromAlgebraic("e4"), Optional.empty(), false, 0);
+    TurnState turn = new TurnState(1, Piece.PieceColor.WHITE, move, "fen-1", 25);
+    GameHistory game = new GameHistory("game-crc-corrupt", "P1", "P2", List.of(turn), Optional.empty());
+
+    ByteBuffer buffer = codec.encode(game);
+    byte[] bytes = new byte[buffer.remaining()];
+    buffer.get(bytes);
+
+    // Mutate the final byte of the 4-byte CRC-32C trailer
+    bytes[bytes.length - 1] ^= (byte) 0xFF;
+
+    assertThrows(MalformedPayloadException.class, () -> codec.decode(ByteBuffer.wrap(bytes)));
   }
 
   @Test
@@ -78,12 +116,17 @@ public class ChessBinaryCodecTest {
         "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 101 ) \"fen\" 0 ) ] #None\n  )\n}";
     assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docHalfmoves101));
 
-    // 2. Promotion to #KING (impossible state)
+    // 2. Promotion to #KING (impossible state under #filterExcl [ #PAWN #KING ])
     String docPromoKing = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 7 ) ( #E 8 ) #Some #KING #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
     assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docPromoKing));
 
-    // 3. Rank = 9 (out of 1..8 range)
+    // 3. Promotion to #PAWN (impossible state under #filterExcl [ #PAWN #KING ])
+    String docPromoPawn = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
+        "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 7 ) ( #E 8 ) #Some #PAWN #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
+    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docPromoPawn));
+
+    // 4. Rank = 9 (out of 1..8 range)
     String docRank9 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 9 ) ( #E 4 ) #None #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
     assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docRank9));

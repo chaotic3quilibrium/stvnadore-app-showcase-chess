@@ -47,13 +47,9 @@ public class PayloadCorruptionFuzzTest {
     validBuffer.get(validBytes);
 
     int totalBytes = validBytes.length;
-    assertTrue(totalBytes > 37, "Strategy 0x07 payload must contain 37-byte header plus body");
+    assertTrue(totalBytes > 41, "Strategy 0x07 payload must contain 37-byte header, body, and 4-byte CRC trailer");
 
-    int headerPoisonCount = 0;
-    int headerMalformedCount = 0;
-    int bodyExceptionCount = 0;
-    int bodyMutationDetectedCount = 0;
-    int paddingByteCount = 0;
+    int crcProtectedCorruptionCount = 0;
 
     for (int offset = 0; offset < totalBytes; offset++) {
       byte[] corrupted = validBytes.clone();
@@ -62,55 +58,24 @@ public class PayloadCorruptionFuzzTest {
 
       ByteBuffer corruptedBuffer = ByteBuffer.wrap(corrupted);
 
-      if (offset >= 5 && offset <= 36) {
-        // Offsets 5..36 contain the 32-byte SHA-256 schema CAS digest
-        assertThrows(
-            PoisonedRegistryPayloadException.class,
-            () -> codec.decode(corruptedBuffer),
-            "Mutated SHA-256 header digest at byte offset " + offset + " must throw PoisonedRegistryPayloadException"
-        );
-        headerPoisonCount++;
-      } else if (offset >= 0 && offset <= 4) {
-        // Offsets 0..3 (Magic 'STVN') and offset 4 (Strategy 0x07 byte)
-        assertThrows(
-            Exception.class,
-            () -> codec.decode(corruptedBuffer),
-            "Mutated header magic/control byte at offset " + offset + " must fail fast"
-        );
-        headerMalformedCount++;
-      } else {
-        // Offsets 37..N-1 (body payload)
-        try {
-          GameHistory decoded = codec.decode(corruptedBuffer);
-          if (representativeGame.equals(decoded)) {
-            // Buffer alignment / trailing padding byte
-            paddingByteCount++;
-          } else {
-            bodyMutationDetectedCount++;
-          }
-        } catch (Exception e) {
-          bodyExceptionCount++;
-        }
-      }
+      // Any single-byte flip across the entire buffer must trigger fail-fast exception
+      assertThrows(
+          Exception.class,
+          () -> codec.decode(corruptedBuffer),
+          "Mutated byte at offset " + offset + " must trigger fail-fast rejection"
+      );
+      crcProtectedCorruptionCount++;
     }
 
-    assertEquals(32, headerPoisonCount, "Exactly 32 SHA-256 digest bytes must trigger PoisonedRegistryPayloadException");
-    assertEquals(5, headerMalformedCount, "All 5 magic and strategy header bytes must trigger fail-fast exception");
-    assertTrue(bodyExceptionCount > 0, "Structural body corruptions must trigger decoding exceptions");
-    assertTrue(bodyMutationDetectedCount > 0, "Value body corruptions must alter decoded state");
-    assertTrue(paddingByteCount <= 7, "Trailing alignment padding bytes must not exceed 7 bytes");
-    assertEquals(
-        totalBytes - 37,
-        bodyExceptionCount + bodyMutationDetectedCount + paddingByteCount,
-        "All body bytes must be accounted for across exceptions, value mutations, and alignment padding"
-    );
+    assertEquals(totalBytes, crcProtectedCorruptionCount, "Every single-byte mutation must fail fast");
   }
 
   @Test
   @DisplayName("All 32 SHA-256 header digest bytes (offsets 5..36) strictly throw PoisonedRegistryPayloadException")
   void testHeaderSha256EveryByteTamperRejection() {
     GameHistory game = buildRepresentativeGame();
-    ByteBuffer validBuffer = codec.encode(game);
+    // Test isolated header tampering without trailer masking
+    ByteBuffer validBuffer = codec.encode(game, false);
     byte[] validBytes = new byte[validBuffer.remaining()];
     validBuffer.get(validBytes);
 

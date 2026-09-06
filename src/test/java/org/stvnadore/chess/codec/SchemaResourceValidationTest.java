@@ -34,7 +34,7 @@ public class SchemaResourceValidationTest {
 
   private static final String SCHEMAS_RESOURCE_DIR = "/schemas";
   private static final String KNOWN_CANONICAL_CAS_HASH =
-      "f5d1bc35d228293c355deac143e52a6d3071686ceba28d343c65ab371db0af2f";
+      "26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f";
 
   /**
    * Discovers all packaged schema resource paths across the project.

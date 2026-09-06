@@ -1,16 +1,16 @@
 # STVN Chess Reference Application (`stvnadore-app-showcase-chess`)
 
-[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-1.0.3-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
+[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-1.1.0--SNAPSHOT-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
 [![Java 21 LTS](https://img.shields.io/badge/Java-21%20LTS-blue.svg)](https://openjdk.org/projects/jdk/21/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.0.2-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
-[![Zero-Trust](https://img.shields.io/badge/Zero--Trust-Strategy%200x07%20CAS-success.svg)]()
+[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.1.0--SNAPSHOT-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
+[![Zero-Trust](https://img.shields.io/badge/Zero--Trust-Strategy%200x87%20CRC32C-success.svg)]()
 
-Production reference application demonstrating **STVN (Strongly Typed Value Notation)** binary encoding, zero-trust schema validation, FIDE-compliant chess rule evaluation, wire format efficiency benchmarking, and an interactive terminal ASCII/Unicode visualizer.
+Production reference application demonstrating STVN binary encoding, zero-trust schema validation, CRC-32C trailer framing, FIDE-compliant chess rule evaluation, wire format efficiency benchmarking, and an interactive terminal visualizer.
 
 ---
 
-- Version: 1.0.3 - 2026.09.04
+- Version: 1.1.0-SNAPSHOT - 2026.09.05
 
 ---
 
@@ -115,7 +115,7 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
     :Piece            :Tuple( :Color :PieceRole )
 
     // --- Move Semantics & Promotion Rules ---
-    :PromotionRole    :Enum [ #KNIGHT #BISHOP #ROOK #QUEEN ]
+    :PromotionRole    { #filterExcl [ #PAWN #KING ] } :PieceRole
     :PromotionOption  :Option( :PromotionRole )
     :IsCapture        :Boolean
     :HalfmovesSincePawnOrCapture { #maxIncl 100 } :Uint7
@@ -149,7 +149,7 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
 | `:File`                        | `Enum [8]` | `#A` to `#H`                        | 3 bits    | 8 board files fit within a 3-bit discriminant.                                                                                                                                                                                                           |
 | `:Color`                       | `Enum [2]` | `#WHITE`, `#BLACK`                  | 1 bit     | 2 player colors fit in a single bit.                                                                                                                                                                                                                     |
 | `:PieceRole`                   | `Enum [6]` | `#PAWN` to `#KING`                  | 3 bits    | 6 piece roles fit in a 3-bit discriminant.                                                                                                                                                                                                               |
-| `:PromotionRole`               | `Enum [4]` | `#KNIGHT` to `#QUEEN`               | 2 bits    | 4 promotion candidates (excluding pawn and king) fit in 2 bits.                                                                                                                                                                                          |
+| `:PromotionRole`               | `PieceRole` (Subset) | `#KNIGHT` to `#QUEEN`     | 3 bits    | Nominal subset filtering (`#filterExcl [ #PAWN #KING ]`) excludes pawn and king, preserving root ordinals.                                                                                                                                             |
 | `:IsCapture`                   | `Boolean`  | `#TRUE`, `#FALSE`                   | 1 bit     | Binary capture flag.                                                                                                                                                                                                                                     |
 | `:TerminalOutcome`             | `Enum [3]` | `#WHITE_WIN`, `#BLACK_WIN`, `#DRAW` | 2 bits    | 3 terminal outcome variants fit in 2 bits.                                                                                                                                                                                                               |
 
@@ -162,26 +162,26 @@ Quantitative wire size comparison executed across canonical matches using `Chess
 ### 1. Paul Morphy's 1858 Opera Game (33 plies)
 | Wire Format                     |  Raw Bytes  | Bytes / Ply | GZIP Compressed Bytes | STVN Size Delta |
 |:--------------------------------|:-----------:|:-----------:|:---------------------:|:---------------:|
-| **STVN Binary (Strategy 0x07)** | **2,990 B** | **90.61 B** |      **1,224 B**      |  **BASELINE**   |
-| JSON (Compact)                  |   8,948 B   |  271.15 B   |        1,046 B        |     +66.6%      |
-| JSON (Pretty)                   |  14,426 B   |  437.15 B   |        1,151 B        |     +79.3%      |
-| Raw Flat Binary (No Schema)     |   2,537 B   |   76.88 B   |         716 B         |     -17.9%      |
+| **STVN Binary (Strategy 0x87)** | **2,994 B** | **90.73 B** |      **1,231 B**      |  **BASELINE**   |
+| JSON (Compact)                  |   8,915 B   |  270.15 B   |        1,045 B        |     +66.4%      |
+| JSON (Pretty)                   |  14,393 B   |  436.15 B   |        1,149 B        |     +79.2%      |
+| Raw Flat Binary (No Schema)     |   2,537 B   |   76.88 B   |         718 B         |     -18.0%      |
 
 ### 2. Kasparov vs Deep Blue 1997 Game 6 (37 plies)
 | Wire Format                     |  Raw Bytes  | Bytes / Ply | GZIP Compressed Bytes | STVN Size Delta |
 |:--------------------------------|:-----------:|:-----------:|:---------------------:|:---------------:|
-| **STVN Binary (Strategy 0x07)** | **3,470 B** | **93.78 B** |      **1,373 B**      |  **BASELINE**   |
-| JSON (Compact)                  |  10,135 B   |  273.92 B   |        1,144 B        |     +65.8%      |
-| JSON (Pretty)                   |  16,273 B   |  439.81 B   |        1,274 B        |     +78.7%      |
-| Raw Flat Binary (No Schema)     |   2,956 B   |   79.89 B   |         796 B         |     -17.4%      |
+| **STVN Binary (Strategy 0x87)** | **3,474 B** | **93.89 B** |      **1,379 B**      |  **BASELINE**   |
+| JSON (Compact)                  |  10,098 B   |  272.92 B   |        1,144 B        |     +65.6%      |
+| JSON (Pretty)                   |  16,236 B   |  438.81 B   |        1,271 B        |     +78.6%      |
+| Raw Flat Binary (No Schema)     |   2,956 B   |   79.89 B   |         796 B         |     -17.5%      |
 
 ### 3. Synthetic Randomized Match (100 plies)
 | Wire Format                     |  Raw Bytes  | Bytes / Ply | GZIP Compressed Bytes | STVN Size Delta |
 |:--------------------------------|:-----------:|:-----------:|:---------------------:|:---------------:|
-| **STVN Binary (Strategy 0x07)** | **8,728 B** | **87.28 B** |      **3,399 B**      |  **BASELINE**   |
-| JSON (Compact)                  |  26,809 B   |  268.09 B   |        2,786 B        |     +67.4%      |
-| JSON (Pretty)                   |  43,342 B   |  433.42 B   |        3,020 B        |     +79.9%      |
-| Raw Flat Binary (No Schema)     |   7,447 B   |   74.47 B   |        2,029 B        |     -17.2%      |
+| **STVN Binary (Strategy 0x87)** | **8,725 B** | **87.25 B** |      **3,402 B**      |  **BASELINE**   |
+| JSON (Compact)                  |  26,802 B   |  268.02 B   |        2,786 B        |     +67.4%      |
+| JSON (Pretty)                   |  43,335 B   |  433.35 B   |        3,022 B        |     +79.9%      |
+| Raw Flat Binary (No Schema)     |   7,440 B   |   74.40 B   |        2,028 B        |     -17.3%      |
 
 > **Key Takeaway:** STVN Binary achieves a **~67.4% raw wire reduction over Compact JSON** and a **~79.9% reduction over Pretty JSON** while providing strong typed validation and cryptographic zero-trust CAS verification.
 
