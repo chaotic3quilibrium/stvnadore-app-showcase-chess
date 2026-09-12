@@ -1,16 +1,16 @@
 # STVN Chess Reference Application (`stvnadore-app-showcase-chess`)
 
-[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-1.1.1-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
+[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-1.2.0--SNAPSHOT-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
 [![Java 21 LTS](https://img.shields.io/badge/Java-21%20LTS-blue.svg)](https://openjdk.org/projects/jdk/21/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.1.1-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
+[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.2.0--SNAPSHOT-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
 [![Zero-Trust](https://img.shields.io/badge/Zero--Trust-Strategy%200x87%20CRC32C-success.svg)]()
 
 Production reference application demonstrating STVN binary encoding, zero-trust schema validation, CRC-32C trailer framing, FIDE-compliant chess rule evaluation, wire format efficiency benchmarking, and an interactive terminal visualizer.
 
 ---
 
-- Version: 1.1.1 - 2026.09.07
+- Version: 1.2.0-SNAPSHOT - 2026.09.12
 
 ---
 
@@ -42,6 +42,7 @@ Production reference application demonstrating STVN binary encoding, zero-trust 
     * [FYI, I'd prefer to move stvnadore-app-showcase-chess to an Apache 2.0 license](#fyi-id-prefer-to-move-stvnadore-app-showcase-chess-to-an-apache-20-license)
     * [I'm not looking to win the lottery, I just don't want to work for free](#im-not-looking-to-win-the-lottery-i-just-dont-want-to-work-for-free)
 * [Version History](#version-history)
+  * [v1.2.0-SNAPSHOT](#v120-snapshot)
   * [v1.1.1](#v111)
   * [v1.1.0](#v110)
   * [v1.0.2](#v102)
@@ -359,6 +360,14 @@ Please email: <jim.oflaherty.jr+sacrml@gmail.com>, letting us know what license 
 ---
 
 # Version History
+
+## v1.2.0-SNAPSHOT
+
+- 2026.09.12
+- Synchronized upstream runtime baseline with `stvnadore-core:1.2.0-SNAPSHOT`
+- Adapted schema resource validation to modular ANTLR4 `defsElement` parse tree productions
+- Verified CAS address invariance (`26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f`)
+- Verified 100% test passing across zero-copy binary wire codecs and multi-game simulation suites
 
 ## v1.1.1
 
