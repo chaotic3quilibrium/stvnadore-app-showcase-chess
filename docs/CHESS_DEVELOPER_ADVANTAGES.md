@@ -2,7 +2,7 @@
 
 **Document ID**: `STVN-GUIDE-CHESS-01`
 **Status**: Reference Architecture & Performance Guide  
-**Version**: 1.1.0
+**Version**: 1.2.0-SNAPSHOT
 **Target Repository**: `stvnadore-app-showcase-chess`
 
 ---

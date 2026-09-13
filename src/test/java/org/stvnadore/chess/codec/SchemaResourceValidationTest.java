@@ -126,8 +126,10 @@ public class SchemaResourceValidationTest {
     if (filename.endsWith(".stvn_inclf")) {
       assertNotNull(docCtx.documentBody(), "Document body must exist for " + filename);
       assertNotNull(docCtx.documentBody().defsEntry(), "Defs entry must exist for " + filename);
-      var includes = docCtx.documentBody().defsEntry().includeStmt();
-      assertTrue(includes == null || includes.isEmpty(),
+      var elements = docCtx.documentBody().defsEntry().defsElement();
+      boolean hasInclude = elements != null && elements.stream()
+          .anyMatch(elem -> elem.includeStmt() != null);
+      assertFalse(hasInclude,
           "Leaf module (.stvn_inclf) " + filename + " must not contain :include statements");
     }
   }
