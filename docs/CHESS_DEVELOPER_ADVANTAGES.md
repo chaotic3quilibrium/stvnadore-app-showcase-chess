@@ -1,9 +1,24 @@
 # STVN Reference Implementation: Chess AI Developer Advantages
 
-**Document ID**: `STVN-GUIDE-CHESS-01`
-**Status**: Reference Architecture & Performance Guide  
-**Version**: 1.2.0-SNAPSHOT
-**Target Repository**: `stvnadore-app-showcase-chess`
+- **Document ID**: `STVN-GUIDE-CHESS-01`
+- **Status**: Reference Architecture & Performance Guide  
+- **Version**: 1.2.0
+- **Target Repository**: `stvnadore-app-showcase-chess`
+
+---
+
+# Table of Contents <!-- omit in toc -->
+
+<!-- TOC -->
+* [STVN Reference Implementation: Chess AI Developer Advantages](#stvn-reference-implementation-chess-ai-developer-advantages)
+* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
+  * [1. Executive Summary](#1-executive-summary)
+  * [2. Wire Format Benchmarking & Efficiency Matrix](#2-wire-format-benchmarking--efficiency-matrix)
+    * [Why STVN Binary Is 81% Smaller than JSON:](#why-stvn-binary-is-81-smaller-than-json)
+  * [3. Zero-Trust Cryptographic Schema Verification](#3-zero-trust-cryptographic-schema-verification)
+    * [Protection Against Poisoned Payloads](#protection-against-poisoned-payloads)
+  * [4. CLI Tooling & Workflows](#4-cli-tooling--workflows)
+<!-- TOC -->
 
 ---
 
@@ -23,19 +38,19 @@ Compared to legacy representations (JSON, XML, Protocol Buffers, FlatBuffers, an
 
 The chess engine benchmarks full match game histories across standard formats:
 
-| Format | Average Size (100 Plies) | GZIP Size | Encoding Strategy | Zero-Trust Verification |
-|:---|:---:|:---:|:---|:---:|
-| **JSON (Pretty)** | ~18,400 bytes | ~3,200 bytes | Text / UTF-8 | None |
-| **JSON (Compact)** | ~11,200 bytes | ~2,600 bytes | Text / UTF-8 | None |
-| **Flat Binary (DataOutputStream)** | ~4,800 bytes | ~1,950 bytes | Big-Endian Primitives | Magic Byte Only (`0x5354564E`) |
-| **STVN Binary (`Strategy 0x87`)** | **~2,154 bytes** | **~1,104 bytes** | **Little-Endian Bit-Packed Nibble + CRC-32C** | **In-Band SHA-256 AST Digest + CRC-32C Trailer** |
+| Format                             | Average Size (100 Plies) |    GZIP Size     | Encoding Strategy                             |             Zero-Trust Verification              |
+|:-----------------------------------|:------------------------:|:----------------:|:----------------------------------------------|:------------------------------------------------:|
+| **JSON (Pretty)**                  |      ~18,400 bytes       |   ~3,200 bytes   | Text / UTF-8                                  |                       None                       |
+| **JSON (Compact)**                 |      ~11,200 bytes       |   ~2,600 bytes   | Text / UTF-8                                  |                       None                       |
+| **Flat Binary (DataOutputStream)** |       ~4,800 bytes       |   ~1,950 bytes   | Big-Endian Primitives                         |          Magic Byte Only (`0x5354564E`)          |
+| **STVN Binary (`Strategy 0x87`)**  |     **~2,154 bytes**     | **~1,104 bytes** | **Little-Endian Bit-Packed Nibble + CRC-32C** | **In-Band SHA-256 AST Digest + CRC-32C Trailer** |
 
 ```mermaid
-barChart
+xychart-beta
     title "Average Wire Payload Size (100 Turns / Plies in Bytes - Lower is Better)"
     x-axis ["JSON (Pretty)", "JSON (Compact)", "Flat Binary", "STVN Binary (Strategy 0x87)"]
     y-axis "Bytes" 0 --> 20000
-    "Raw Wire Bytes" : [18400, 11200, 4800, 2154]
+    bar [18400, 11200, 4800, 2154]
 ```
 
 ### Why STVN Binary Is 81% Smaller than JSON:
