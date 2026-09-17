@@ -99,10 +99,15 @@ public class ChessSerializationFuzzTest {
     byte[] validBytes = new byte[validBuffer.remaining()];
     validBuffer.get(validBytes);
 
-    // Flip random byte in header (0..36)
+    // Flip random byte in header (0..36). At index 4, bit 7 controls CRC trailer presence;
+    // mutating bits 0..6 corrupts encoding/strategy format.
     int headerIndex = rng.nextInt(37);
+    int bitIndex = rng.nextInt(8);
+    if (headerIndex == 4 && bitIndex == 7) {
+      bitIndex = rng.nextInt(7);
+    }
     byte[] corruptedHeader = validBytes.clone();
-    corruptedHeader[headerIndex] ^= (byte) (1 << rng.nextInt(8));
+    corruptedHeader[headerIndex] ^= (byte) (1 << bitIndex);
 
     assertThrows(Exception.class, () -> codec.decode(ByteBuffer.wrap(corruptedHeader)),
         "Corrupted header at index " + headerIndex + " must be rejected");
@@ -115,6 +120,10 @@ public class ChessSerializationFuzzTest {
     if (defsOnly.startsWith("{")) {
       defsOnly = defsOnly.substring(1, defsOnly.lastIndexOf('}'));
     }
+    if (defsOnly.contains(":package :org/stvnadore/chess")) {
+      int lastBrace = defsOnly.lastIndexOf('}');
+      defsOnly = defsOnly.substring(0, lastBrace) + "  :use [ :org/stvnadore/chess { #strip } ]\n  }";
+    }
     String docTurn1024 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g-overflow\" \"W\" \"B\" [ ( 1024 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
     assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docTurn1024));
@@ -126,6 +135,10 @@ public class ChessSerializationFuzzTest {
     String defsOnly = schemaContent.trim();
     if (defsOnly.startsWith("{")) {
       defsOnly = defsOnly.substring(1, defsOnly.lastIndexOf('}'));
+    }
+    if (defsOnly.contains(":package :org/stvnadore/chess")) {
+      int lastBrace = defsOnly.lastIndexOf('}');
+      defsOnly = defsOnly.substring(0, lastBrace) + "  :use [ :org/stvnadore/chess { #strip } ]\n  }";
     }
     String docHalfmove101 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g-halfmove\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 101 ) \"fen\" 0 ) ] #None\n  )\n}";

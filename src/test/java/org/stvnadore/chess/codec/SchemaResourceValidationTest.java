@@ -34,6 +34,9 @@ public class SchemaResourceValidationTest {
 
   private static final String SCHEMAS_RESOURCE_DIR = "/schemas";
   private static final String KNOWN_CANONICAL_CAS_HASH =
+      "39bab41f6b73910b99018ce4667b0ac8a0c80cbe4db8eb36f702812dcb6bacbb";
+  @SuppressWarnings("unused")
+  private static final String LEGACY_1_2_0_CAS_HASH =
       "26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f";
 
   /**
@@ -84,6 +87,10 @@ public class SchemaResourceValidationTest {
   private void validateSchemaResource(Path schemaPath) throws IOException {
     String content = Files.readString(schemaPath, StandardCharsets.UTF_8);
     String filename = schemaPath.getFileName().toString();
+
+    // 0. Assert zero-tab invariant (no raw horizontal tab characters)
+    assertFalse(content.contains("\t"),
+        "Schema " + filename + " must obey Zero-Tab Invariant: contains raw horizontal tab characters");
 
     // 1. Assert root wrapping rule (must begin with '{' and end with '}')
     String trimmed = content.strip();
@@ -146,6 +153,7 @@ public class SchemaResourceValidationTest {
         {
           :defs {
             :include [ "chess_turn.stvn_inclf" ]
+            :use [ :org/stvnadore/chess { #strip } ]
           }
           :type :GameHistory
           :body ( "import-test" "White" "Black" [] #None )

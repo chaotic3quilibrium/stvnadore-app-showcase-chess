@@ -2,6 +2,7 @@ package org.stvnadore.chess.engine;
 
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.chess.domain.BoardState;
+import org.stvnadore.chess.domain.CastlingRights;
 import org.stvnadore.chess.domain.Move;
 import org.stvnadore.chess.domain.Piece;
 import org.stvnadore.chess.domain.Square;
@@ -247,7 +248,8 @@ public final class MoveValidator {
     Piece.PieceColor nextColor = (board.activeColor() == Piece.PieceColor.WHITE)
         ? Piece.PieceColor.BLACK : Piece.PieceColor.WHITE;
 
-    return new BoardState(nextSquares, nextColor, wK, wQ, bK, bQ, newEpTarget, nextHalfmove, nextFullmove);
+    CastlingRights nextCastling = new CastlingRights(wK, wQ, bK, bQ);
+    return new BoardState(nextSquares, nextColor, nextCastling, newEpTarget, nextHalfmove, nextFullmove);
   }
 
   private static boolean checkRayAttacks(BoardState board, int fileIdx, int rankIdx, int[][] directions,

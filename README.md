@@ -1,16 +1,16 @@
 # STVN Chess Reference Application (`stvnadore-app-showcase-chess`)
 
-[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-1.2.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
+[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-1.3.0--SNAPSHOT-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
 [![Java 21 LTS](https://img.shields.io/badge/Java-21%20LTS-blue.svg)](https://openjdk.org/projects/jdk/21/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.2.0-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
+[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.3.0--SNAPSHOT-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
 [![Zero-Trust](https://img.shields.io/badge/Zero--Trust-Strategy%200x87%20CRC32C-success.svg)]()
 
 Production reference application demonstrating STVN binary encoding, zero-trust schema validation, CRC-32C trailer framing, FIDE-compliant chess rule evaluation, wire format efficiency benchmarking, and an interactive terminal visualizer.
 
 ---
 
-- Version: 1.2.0 - 2026.09.12
+- Version: 1.3.0-SNAPSHOT - 2026.09.17
 
 ---
 
@@ -41,6 +41,7 @@ Production reference application demonstrating STVN binary encoding, zero-trust 
     * [FYI, I'd prefer to move stvnadore-app-showcase-chess to an Apache 2.0 license](#fyi-id-prefer-to-move-stvnadore-app-showcase-chess-to-an-apache-20-license)
     * [I'm not looking to win the lottery, I just don't want to work for free](#im-not-looking-to-win-the-lottery-i-just-dont-want-to-work-for-free)
 * [Version History](#version-history)
+  * [v1.3.0-SNAPSHOT](#v130-snapshot)
   * [v1.2.0](#v120)
   * [v1.1.1](#v111)
   * [v1.1.0](#v110)
@@ -109,35 +110,40 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
 {
   // chess_turn.stvn_inclf
   :defs {
-    // --- Board Coordinates & Pieces ---
-    :File             :Enum [ #A #B #C #D #E #F #G #H ]
-    :Rank             { #minIncl 1 #maxIncl 8 } :Uint4
-    :Square           :Tuple( :File :Rank )
+    :package :org/stvnadore/chess {
+      // --- Board Coordinates & Pieces ---
+      :File             :Enum [ #A #B #C #D #E #F #G #H ]
+      :Rank             { #minIncl 1 #maxIncl 8 } :Uint4
+      :Square           :Tuple( :File :Rank )
 
-    :Color            :Enum [ #WHITE #BLACK ]
-    :PieceRole        :Enum [ #PAWN #KNIGHT #BISHOP #ROOK #QUEEN #KING ]
-    :Piece            :Tuple( :Color :PieceRole )
+      :Color            :Enum [ #WHITE #BLACK ]
+      :PieceRole        :Enum [ #PAWN #KNIGHT #BISHOP #ROOK #QUEEN #KING ]
+      :Piece            :Tuple( :Color :PieceRole )
 
-    // --- Move Semantics & Promotion Rules ---
-    :PromotionRole    { #filterExcl [ #PAWN #KING ] } :PieceRole
-    :PromotionOption  :Option( :PromotionRole )
-    :IsCapture        :Boolean
-    :HalfmovesSincePawnOrCapture { #maxIncl 100 } :Uint7
-    :Move             :Tuple( :Square :Square :PromotionOption :IsCapture :HalfmovesSincePawnOrCapture )
+      // --- Move Semantics & Promotion Rules ---
+      :PromotionRole    { #filterExcl [ #PAWN #KING ] } :PieceRole
+      :PromotionOption  :Option( :PromotionRole )
+      :IsCapture        :Boolean
+      :HalfmovesSincePawnOrCapture { #maxIncl 100 } :Uint7
+      :SanMoveString    :String8
+      :Move             :Tuple( :Square :Square :PromotionOption :IsCapture :HalfmovesSincePawnOrCapture )
 
-    // --- Turn Evaluation & State Tracking ---
-    :TurnNumber       { #minIncl 1 } :Uint10
-    :ForsythEdwardsNotation :String
-    :CentipawnEvaluation :Int16
-    :TurnState        :Tuple( :TurnNumber :Color :Move :ForsythEdwardsNotation :CentipawnEvaluation )
+      // --- Turn Evaluation & State Tracking ---
+      :TurnNumber       { #minIncl 1 } :Uint10
+      :FenStringFixed   :String128
+      :ForsythEdwardsNotation :FenStringFixed
+      :CentipawnEvaluation :Int16
+      :TurnState        :Tuple( :TurnNumber :Color :Move :ForsythEdwardsNotation :CentipawnEvaluation )
 
-    // --- Match Metadata & Outcomes ---
-    :MatchId          :String
-    :WhitePlayer      :String
-    :BlackPlayer      :String
-    :TerminalOutcome  :Enum [ #WHITE_WIN #BLACK_WIN #DRAW ]
-    :MatchResult      :Option( :TerminalOutcome )
-    :GameHistory      :Tuple( :MatchId :WhitePlayer :BlackPlayer :Seq( :TurnState ) :MatchResult )
+      // --- Match Metadata & Outcomes ---
+      :MatchId          :String64
+      :PlayerName       :String64
+      :WhitePlayer      :PlayerName
+      :BlackPlayer      :PlayerName
+      :TerminalOutcome  :Enum [ #WHITE_WIN #BLACK_WIN #DRAW ]
+      :MatchResult      :Option( :TerminalOutcome )
+      :GameHistory      :Tuple( :MatchId :WhitePlayer :BlackPlayer :Seq( :TurnState ) :MatchResult )
+    }
   }
 }
 ```
@@ -156,6 +162,10 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
 | `:PromotionRole`               | `PieceRole` (Subset) | `#KNIGHT` to `#QUEEN`               | 3 bits    | Nominal subset filtering (`#filterExcl [ #PAWN #KING ]`) excludes pawn and king, preserving root ordinals.                                                                                                                                               |
 | `:IsCapture`                   | `Boolean`            | `#TRUE`, `#FALSE`                   | 1 bit     | Binary capture flag.                                                                                                                                                                                                                                     |
 | `:TerminalOutcome`             | `Enum [3]`           | `#WHITE_WIN`, `#BLACK_WIN`, `#DRAW` | 2 bits    | 3 terminal outcome variants fit in 2 bits.                                                                                                                                                                                                               |
+| `:SanMoveString`               | `:String8`           | $0 \dots 8$ chars                   | Variable  | SAN moves require at most 7 characters (e.g., `exd8=Q#`). Bounded to 8 characters to prevent unbounded memory allocation.                                                                                                                               |
+| `:FenStringFixed`              | `:String128`         | $0 \dots 128$ chars                 | Variable  | Standard FEN representation requires at most 90 characters. Bounded to 128 characters to prevent unbounded memory allocation.                                                                                                                           |
+| `:PlayerName`                  | `:String64`          | $0 \dots 64$ chars                  | Variable  | Player names bounded to 64 UTF-8 characters.                                                                                                                                                                                                             |
+| `:MatchId`                     | `:String64`          | $0 \dots 64$ chars                  | Variable  | Match identifier bounded to 64 ASCII/UTF-8 characters.                                                                                                                                                                                                   |
 
 ---
 
@@ -359,6 +369,23 @@ Please email: <jim.oflaherty.jr+sacrml@gmail.com>, letting us know what license 
 ---
 
 # Version History
+
+## v1.3.0-SNAPSHOT
+
+- 2026.09.17
+- Synchronized build descriptor to `stvnadore-core:1.3.0-SNAPSHOT`
+- Added `-Xlint:-processing` to javac arguments to suppress annotation processor warnings under `-Werror`
+- Modernized canonical schema `chess_turn.stvn_inclf`:
+    - Enclosed definitions in package block `:package :org/stvnadore/chess { ... }`
+    - Eliminated unbounded `:String` types in favor of bounded nominal types (`:FenStringFixed :String128`, `:SanMoveString :String8`, `:PlayerName :String64`, `:MatchId :String64`)
+    - Guaranteed zero horizontal tab characters (`U+0009`) across schema definitions
+- Verified Content-Addressable Storage (CAS) SHA-256 digest: `39bab41f6b73910b99018ce4667b0ac8a0c80cbe4db8eb36f702812dcb6bacbb`
+- Transitioned domain model to Value-Oriented Programming (VOP):
+    - Introduced immutable product tuple record `CastlingRights`
+    - Refactored `BoardState` to encapsulate `CastlingRights` with backward-compatible delegators
+- Hardened ingress validation against horizontal tab characters with `ERR_TAB_CHARACTER_FORBIDDEN` test suite (`TabCharacterIngressTest`)
+- Hardened multi-game simulation test suite under Java 21 LTS virtual threads (`Executors.newVirtualThreadPerTaskExecutor()`)
+- Achieved 100% test pass rate (77 tests) with 0 compiler warnings under `-Werror` and 0 Javadoc warnings under doclint
 
 ## v1.2.0
 

@@ -35,6 +35,10 @@ public final class ChessAstMapper {
     Objects.requireNonNull(schemaContent, "schemaContent must not be null");
 
     String defsBlock = extractDefsBlock(schemaContent);
+    if (defsBlock.contains(":package :org/stvnadore/chess")) {
+      int lastBrace = defsBlock.lastIndexOf('}');
+      defsBlock = defsBlock.substring(0, lastBrace) + "  :use [ :org/stvnadore/chess { #strip } ]\n  }";
+    }
 
     StringBuilder sb = new StringBuilder();
     sb.append("{\n");
