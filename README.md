@@ -14,11 +14,10 @@ Production reference application demonstrating STVN binary encoding, zero-trust 
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [STVN Chess Reference Application (`stvnadore-app-showcase-chess`)](#stvn-chess-reference-application-stvnadore-app-showcase-chess)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [Architecture Overview](#architecture-overview)
   * [STVN Schema & Bit-Width Design](#stvn-schema--bit-width-design)
     * [Bit-Width Allocation Rationale](#bit-width-allocation-rationale)
@@ -363,6 +362,7 @@ Please email: <jim.oflaherty.jr+sacrml@gmail.com>, letting us know what license 
 
 ## v1.2.0
 
+- 2026.09.12
 - Integrated changes to `stvnadore-core`
     - Standard prelude relocated to namespace `:org/stvnadore/prelude/*` and out of root, completely clearing the root namespace
     - Atomic temporal primitives pruned to nominal prelude schemas
