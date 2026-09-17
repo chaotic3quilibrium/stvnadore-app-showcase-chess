@@ -2,6 +2,7 @@ package org.stvnadore.chess.engine;
 
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.chess.domain.BoardState;
+import org.stvnadore.chess.domain.CastlingRights;
 import org.stvnadore.chess.domain.Piece;
 import org.stvnadore.chess.domain.Square;
 
@@ -95,7 +96,8 @@ public final class FenCodec {
     int halfmove = Integer.parseInt(halfmoveStr);
     int fullmove = Integer.parseInt(fullmoveStr);
 
-    return new BoardState(squares, activeColor, wK, wQ, bK, bQ, epTarget, halfmove, fullmove);
+    CastlingRights cr = new CastlingRights(wK, wQ, bK, bQ);
+    return new BoardState(squares, activeColor, cr, epTarget, halfmove, fullmove);
   }
 
   /**

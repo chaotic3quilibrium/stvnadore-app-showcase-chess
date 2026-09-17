@@ -22,6 +22,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -43,8 +46,21 @@ public class MultiGameSimulationHardeningTest {
   }
 
   @Test
-  @DisplayName("Simulate 10 consecutive full random matches to terminal completion with 100% AST and Binary fidelity")
-  void testTenConsecutiveFullRandomMatchesToCompletion() {
+  @DisplayName("Simulate 10 consecutive full random matches to terminal completion with 100% AST and Binary fidelity under virtual threads")
+  void testTenConsecutiveFullRandomMatchesToCompletion() throws Exception {
+    try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+      var future = executor.submit(this::runSimulationPass);
+      try {
+        future.get();
+      } catch (ExecutionException e) {
+        if (e.getCause() instanceof AssertionError ae) throw ae;
+        if (e.getCause() instanceof RuntimeException re) throw re;
+        throw new RuntimeException(e.getCause());
+      }
+    }
+  }
+
+  private void runSimulationPass() {
     int totalGamesToSimulate = 10;
     int checkmateCount = 0;
     int stalemateCount = 0;

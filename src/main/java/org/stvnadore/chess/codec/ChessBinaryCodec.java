@@ -162,7 +162,10 @@ public class ChessBinaryCodec {
       }
     }
     String defsBlock = schemaContent.substring(defsIdx, closeBrace + 1);
-
+    if (defsBlock.contains(":package :org/stvnadore/chess")) {
+      int lastBrace = defsBlock.lastIndexOf('}');
+      defsBlock = defsBlock.substring(0, lastBrace) + "  :use [ :org/stvnadore/chess { #strip } ]\n  }";
+    }
     return "{\n  " + defsBlock + "\n  :type :GameHistory\n  :body ( \"test\" \"white\" \"black\" [] #None )\n}";
   }
 }

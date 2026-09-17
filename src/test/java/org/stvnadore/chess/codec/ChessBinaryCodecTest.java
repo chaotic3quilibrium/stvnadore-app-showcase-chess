@@ -110,6 +110,10 @@ public class ChessBinaryCodecTest {
     if (defsOnly.startsWith("{")) {
       defsOnly = defsOnly.substring(1, defsOnly.lastIndexOf('}'));
     }
+    if (defsOnly.contains(":package :org/stvnadore/chess")) {
+      int lastBrace = defsOnly.lastIndexOf('}');
+      defsOnly = defsOnly.substring(0, lastBrace) + "  :use [ :org/stvnadore/chess { #strip } ]\n  }";
+    }
 
     // 1. Halfmoves > 100
     String docHalfmoves101 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +

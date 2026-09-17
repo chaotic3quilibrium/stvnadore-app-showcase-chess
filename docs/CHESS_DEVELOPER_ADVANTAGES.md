@@ -2,16 +2,15 @@
 
 - **Document ID**: `STVN-GUIDE-CHESS-01`
 - **Status**: Reference Architecture & Performance Guide  
-- **Version**: 1.2.0
+- **Version**: 1.3.0-SNAPSHOT
 - **Target Repository**: `stvnadore-app-showcase-chess`
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [STVN Reference Implementation: Chess AI Developer Advantages](#stvn-reference-implementation-chess-ai-developer-advantages)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [1. Executive Summary](#1-executive-summary)
   * [2. Wire Format Benchmarking & Efficiency Matrix](#2-wire-format-benchmarking--efficiency-matrix)
     * [Why STVN Binary Is 81% Smaller than JSON:](#why-stvn-binary-is-81-smaller-than-json)
@@ -74,7 +73,7 @@ Every `.stvn_bin` bytecode payload emitted by `ChessBinaryCodec` embeds the 32-b
 ```
 
 ### Protection Against Poisoned Payloads
-If an adversary mutates the schema definition, alters bit-width constraints, or injects malicious payloads, `StvnBinaryDecoder` detects the cryptographic hash mismatch at byte offset 5 and immediately halts deserialization with a `PoisonedRegistryPayloadException`:
+If an adversary mutates the schema definition, alters bit-width constraints, or injects malicious payloads, `StvnBinaryDecoder` detects the cryptographic hash mismatch at byte offset 5 and immediately halts deserialization with a `PoisonedRegistryPayloadException`. Under `stvnadore-core:1.3.0-SNAPSHOT`, the canonical schema CAS digest is `39bab41f6b73910b99018ce4667b0ac8a0c80cbe4db8eb36f702812dcb6bacbb`, featuring bounded nominal strings (`:FenStringFixed :String128`, `:SanMoveString :String8`, `:PlayerName :String64`, `:MatchId :String64`), `:package :org/stvnadore/chess`, and strict zero-tab invariant enforcement (`ERR_TAB_CHARACTER_FORBIDDEN`).
 
 ```bash
 # Verify poisoned payload rejection via CLI:

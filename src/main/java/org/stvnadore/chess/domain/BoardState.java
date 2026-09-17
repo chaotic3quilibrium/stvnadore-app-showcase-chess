@@ -11,10 +11,7 @@ import java.util.Optional;
  *
  * @param squares 64-element array of piece positions (null indicates unoccupied square)
  * @param activeColor the player whose turn it is to move
- * @param whiteKingsideCastling true if white can castle kingside
- * @param whiteQueensideCastling true if white can castle queenside
- * @param blackKingsideCastling true if black can castle kingside
- * @param blackQueensideCastling true if black can castle queenside
+ * @param castlingRights current player castling privileges
  * @param enPassantTarget target square for en-passant capture if pawn just advanced 2 squares
  * @param halfmoveClock plies since last pawn push or capture (for 50-move rule)
  * @param fullmoveNumber turn sequence counter starting at 1
@@ -22,10 +19,7 @@ import java.util.Optional;
 public record BoardState(
     @Nullable Piece[] squares,
     Piece.PieceColor activeColor,
-    boolean whiteKingsideCastling,
-    boolean whiteQueensideCastling,
-    boolean blackKingsideCastling,
-    boolean blackQueensideCastling,
+    CastlingRights castlingRights,
     Optional<Square> enPassantTarget,
     int halfmoveClock,
     int fullmoveNumber
@@ -40,6 +34,7 @@ public record BoardState(
   public BoardState {
     Objects.requireNonNull(squares, "squares must not be null");
     Objects.requireNonNull(activeColor, "activeColor must not be null");
+    Objects.requireNonNull(castlingRights, "castlingRights must not be null");
     Objects.requireNonNull(enPassantTarget, "enPassantTarget must not be null");
     if (squares.length != 64) {
       throw new IllegalArgumentException("Board squares array must have length 64, got: " + squares.length);
@@ -51,6 +46,40 @@ public record BoardState(
       throw new IllegalArgumentException("fullmoveNumber must be >= 1: " + fullmoveNumber);
     }
     squares = squares.clone();
+  }
+
+  /**
+   * Overloaded constructor supporting legacy individual castling privilege booleans.
+   *
+   * @param squares 64-element array of pieces
+   * @param activeColor active player color
+   * @param whiteKingsideCastling white kingside right
+   * @param whiteQueensideCastling white queenside right
+   * @param blackKingsideCastling black kingside right
+   * @param blackQueensideCastling black queenside right
+   * @param enPassantTarget optional en-passant square
+   * @param halfmoveClock halfmove count
+   * @param fullmoveNumber fullmove count
+   */
+  public BoardState(
+      @Nullable Piece[] squares,
+      Piece.PieceColor activeColor,
+      boolean whiteKingsideCastling,
+      boolean whiteQueensideCastling,
+      boolean blackKingsideCastling,
+      boolean blackQueensideCastling,
+      Optional<Square> enPassantTarget,
+      int halfmoveClock,
+      int fullmoveNumber
+  ) {
+    this(
+        squares,
+        activeColor,
+        new CastlingRights(whiteKingsideCastling, whiteQueensideCastling, blackKingsideCastling, blackQueensideCastling),
+        enPassantTarget,
+        halfmoveClock,
+        fullmoveNumber
+    );
   }
 
   /**
@@ -108,17 +137,50 @@ public record BoardState(
     sq[62] = new Piece(Piece.PieceColor.BLACK, Piece.PieceRole.KNIGHT);
     sq[63] = new Piece(Piece.PieceColor.BLACK, Piece.PieceRole.ROOK);
 
-    return new BoardState(sq, Piece.PieceColor.WHITE, true, true, true, true, Optional.empty(), 0, 1);
+    return new BoardState(sq, Piece.PieceColor.WHITE, CastlingRights.ALL, Optional.empty(), 0, 1);
+  }
+
+  /**
+   * Returns whether White retains kingside castling rights.
+   *
+   * @return true if White can castle kingside
+   */
+  public boolean whiteKingsideCastling() {
+    return castlingRights.whiteKingside();
+  }
+
+  /**
+   * Returns whether White retains queenside castling rights.
+   *
+   * @return true if White can castle queenside
+   */
+  public boolean whiteQueensideCastling() {
+    return castlingRights.whiteQueenside();
+  }
+
+  /**
+   * Returns whether Black retains kingside castling rights.
+   *
+   * @return true if Black can castle kingside
+   */
+  public boolean blackKingsideCastling() {
+    return castlingRights.blackKingside();
+  }
+
+  /**
+   * Returns whether Black retains queenside castling rights.
+   *
+   * @return true if Black can castle queenside
+   */
+  public boolean blackQueensideCastling() {
+    return castlingRights.blackQueenside();
   }
 
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
     if (!(o instanceof BoardState that)) return false;
-    return whiteKingsideCastling == that.whiteKingsideCastling &&
-        whiteQueensideCastling == that.whiteQueensideCastling &&
-        blackKingsideCastling == that.blackKingsideCastling &&
-        blackQueensideCastling == that.blackQueensideCastling &&
+    return Objects.equals(castlingRights, that.castlingRights) &&
         halfmoveClock == that.halfmoveClock &&
         fullmoveNumber == that.fullmoveNumber &&
         Arrays.equals(squares, that.squares) &&
@@ -128,8 +190,7 @@ public record BoardState(
 
   @Override
   public int hashCode() {
-    int result = Objects.hash(activeColor, whiteKingsideCastling, whiteQueensideCastling,
-        blackKingsideCastling, blackQueensideCastling, enPassantTarget, halfmoveClock, fullmoveNumber);
+    int result = Objects.hash(activeColor, castlingRights, enPassantTarget, halfmoveClock, fullmoveNumber);
     result = 31 * result + Arrays.hashCode(squares);
     return result;
   }
