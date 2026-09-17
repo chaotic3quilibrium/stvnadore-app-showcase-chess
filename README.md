@@ -1,16 +1,16 @@
 # STVN Chess Reference Application (`stvnadore-app-showcase-chess`)
 
-[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-1.3.0--SNAPSHOT-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
+[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-1.3.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
 [![Java 21 LTS](https://img.shields.io/badge/Java-21%20LTS-blue.svg)](https://openjdk.org/projects/jdk/21/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.3.0--SNAPSHOT-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
+[![STVN Core](https://img.shields.io/badge/STVN%20Core-1.3.0-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
 [![Zero-Trust](https://img.shields.io/badge/Zero--Trust-Strategy%200x87%20CRC32C-success.svg)]()
 
 Production reference application demonstrating STVN binary encoding, zero-trust schema validation, CRC-32C trailer framing, FIDE-compliant chess rule evaluation, wire format efficiency benchmarking, and an interactive terminal visualizer.
 
 ---
 
-- Version: 1.3.0-SNAPSHOT - 2026.09.17
+- Version: 1.3.0 - 2026.09.17
 
 ---
 
@@ -41,7 +41,7 @@ Production reference application demonstrating STVN binary encoding, zero-trust 
     * [FYI, I'd prefer to move stvnadore-app-showcase-chess to an Apache 2.0 license](#fyi-id-prefer-to-move-stvnadore-app-showcase-chess-to-an-apache-20-license)
     * [I'm not looking to win the lottery, I just don't want to work for free](#im-not-looking-to-win-the-lottery-i-just-dont-want-to-work-for-free)
 * [Version History](#version-history)
-  * [v1.3.0-SNAPSHOT](#v130-snapshot)
+  * [v1.3.0](#v130)
   * [v1.2.0](#v120)
   * [v1.1.1](#v111)
   * [v1.1.0](#v110)
@@ -162,8 +162,8 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
 | `:PromotionRole`               | `PieceRole` (Subset) | `#KNIGHT` to `#QUEEN`               | 3 bits    | Nominal subset filtering (`#filterExcl [ #PAWN #KING ]`) excludes pawn and king, preserving root ordinals.                                                                                                                                               |
 | `:IsCapture`                   | `Boolean`            | `#TRUE`, `#FALSE`                   | 1 bit     | Binary capture flag.                                                                                                                                                                                                                                     |
 | `:TerminalOutcome`             | `Enum [3]`           | `#WHITE_WIN`, `#BLACK_WIN`, `#DRAW` | 2 bits    | 3 terminal outcome variants fit in 2 bits.                                                                                                                                                                                                               |
-| `:SanMoveString`               | `:String8`           | $0 \dots 8$ chars                   | Variable  | SAN moves require at most 7 characters (e.g., `exd8=Q#`). Bounded to 8 characters to prevent unbounded memory allocation.                                                                                                                               |
-| `:FenStringFixed`              | `:String128`         | $0 \dots 128$ chars                 | Variable  | Standard FEN representation requires at most 90 characters. Bounded to 128 characters to prevent unbounded memory allocation.                                                                                                                           |
+| `:SanMoveString`               | `:String8`           | $0 \dots 8$ chars                   | Variable  | SAN moves require at most 7 characters (e.g., `exd8=Q#`). Bounded to 8 characters to prevent unbounded memory allocation.                                                                                                                                |
+| `:FenStringFixed`              | `:String128`         | $0 \dots 128$ chars                 | Variable  | Standard FEN representation requires at most 90 characters. Bounded to 128 characters to prevent unbounded memory allocation.                                                                                                                            |
 | `:PlayerName`                  | `:String64`          | $0 \dots 64$ chars                  | Variable  | Player names bounded to 64 UTF-8 characters.                                                                                                                                                                                                             |
 | `:MatchId`                     | `:String64`          | $0 \dots 64$ chars                  | Variable  | Match identifier bounded to 64 ASCII/UTF-8 characters.                                                                                                                                                                                                   |
 
@@ -174,6 +174,7 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
 Quantitative wire size comparison executed across canonical matches using `ChessWireBenchmarker`:
 
 ### 1. Paul Morphy's 1858 Opera Game (33 plies)
+
 | Wire Format                     |  Raw Bytes  | Bytes / Ply | GZIP Compressed Bytes | STVN Size Delta |
 |:--------------------------------|:-----------:|:-----------:|:---------------------:|:---------------:|
 | **STVN Binary (Strategy 0x87)** | **2,994 B** | **90.73 B** |      **1,231 B**      |  **BASELINE**   |
@@ -182,6 +183,7 @@ Quantitative wire size comparison executed across canonical matches using `Chess
 | Raw Flat Binary (No Schema)     |   2,537 B   |   76.88 B   |         718 B         |     -18.0%      |
 
 ### 2. Kasparov vs Deep Blue 1997 Game 6 (37 plies)
+
 | Wire Format                     |  Raw Bytes  | Bytes / Ply | GZIP Compressed Bytes | STVN Size Delta |
 |:--------------------------------|:-----------:|:-----------:|:---------------------:|:---------------:|
 | **STVN Binary (Strategy 0x87)** | **3,474 B** | **93.89 B** |      **1,379 B**      |  **BASELINE**   |
@@ -190,6 +192,7 @@ Quantitative wire size comparison executed across canonical matches using `Chess
 | Raw Flat Binary (No Schema)     |   2,956 B   |   79.89 B   |         796 B         |     -17.5%      |
 
 ### 3. Synthetic Randomized Match (100 plies)
+
 | Wire Format                     |  Raw Bytes  | Bytes / Ply | GZIP Compressed Bytes | STVN Size Delta |
 |:--------------------------------|:-----------:|:-----------:|:---------------------:|:---------------:|
 | **STVN Binary (Strategy 0x87)** | **8,725 B** | **87.25 B** |      **3,402 B**      |  **BASELINE**   |
@@ -206,6 +209,7 @@ Quantitative wire size comparison executed across canonical matches using `Chess
 The application provides a single unified entry point via `ChessCliApplication` supporting 6 subcommands and enforcing strict POSIX-compliant status codes:
 
 ### Exit Status Contract
+
 | Exit Code | Classification           | Description                                                             |
 |:---------:|:-------------------------|:------------------------------------------------------------------------|
 |    `0`    | **Success**              | Command completed successfully.                                         |
@@ -256,6 +260,7 @@ STVN enforces cryptographic schema pinning at the binary frame boundary using **
 ```
 
 When a client decodes a `.stvn_bin` binary file:
+
 1. `StvnBinaryDecoder.open()` reads the 37-byte header and extracts the embedded SHA-256 digest.
 2. The decoder computes the SHA-256 digest of the locally resolved schema.
 3. If a single bit in the 32-byte digest differs, the decoder immediately halts and throws `PoisonedRegistryPayloadException`.
@@ -300,6 +305,7 @@ Material Balance: White captured 1 pawn(s) | Black captured 0 piece(s)
 ## PGN Import & Interoperability
 
 The zero-dependency `PgnParser` imports standard FIDE PGN records into validated `GameHistory` models:
+
 - Parses standard header tags (`[Event ""]`, `[White ""]`, `[Black ""]`, `[Result ""]`).
 - Strips inline comments (`{ ... }`), line comments (`; ...`), annotations (`!`, `?`), and NAGs (`$1`).
 - Resolves Standard Algebraic Notation (SAN) with full disambiguation by file (`Nbd7`), rank (`R1d2`), or both (`Qh4e1`).
@@ -312,10 +318,12 @@ The zero-dependency `PgnParser` imports standard FIDE PGN records into validated
 ## Build & Test Execution
 
 ### Prerequisites
+
 - JDK 21 LTS or higher
 - Maven 3.9+ (or included `./mvnw`)
 
 ### Build Commands
+
 ```bash
 # Clean and compile with strict zero-warning enforcement (-Werror, -Xlint:all)
 ./mvnw clean compile
@@ -370,19 +378,19 @@ Please email: <jim.oflaherty.jr+sacrml@gmail.com>, letting us know what license 
 
 # Version History
 
-## v1.3.0-SNAPSHOT
+## v1.3.0
 
 - 2026.09.17
-- Synchronized build descriptor to `stvnadore-core:1.3.0-SNAPSHOT`
+- Synchronized build descriptor to `stvnadore-core:1.3.0`
 - Added `-Xlint:-processing` to javac arguments to suppress annotation processor warnings under `-Werror`
 - Modernized canonical schema `chess_turn.stvn_inclf`:
-    - Enclosed definitions in package block `:package :org/stvnadore/chess { ... }`
-    - Eliminated unbounded `:String` types in favor of bounded nominal types (`:FenStringFixed :String128`, `:SanMoveString :String8`, `:PlayerName :String64`, `:MatchId :String64`)
-    - Guaranteed zero horizontal tab characters (`U+0009`) across schema definitions
+  - Enclosed definitions in package block `:package :org/stvnadore/chess { ... }`
+  - Eliminated unbounded `:String` types in favor of bounded nominal types (`:FenStringFixed :String128`, `:SanMoveString :String8`, `:PlayerName :String64`, `:MatchId :String64`)
+  - Guaranteed zero horizontal tab characters (`U+0009`) across schema definitions
 - Verified Content-Addressable Storage (CAS) SHA-256 digest: `39bab41f6b73910b99018ce4667b0ac8a0c80cbe4db8eb36f702812dcb6bacbb`
 - Transitioned domain model to Value-Oriented Programming (VOP):
-    - Introduced immutable product tuple record `CastlingRights`
-    - Refactored `BoardState` to encapsulate `CastlingRights` with backward-compatible delegators
+  - Introduced immutable product tuple record `CastlingRights`
+  - Refactored `BoardState` to encapsulate `CastlingRights` with backward-compatible delegators
 - Hardened ingress validation against horizontal tab characters with `ERR_TAB_CHARACTER_FORBIDDEN` test suite (`TabCharacterIngressTest`)
 - Hardened multi-game simulation test suite under Java 21 LTS virtual threads (`Executors.newVirtualThreadPerTaskExecutor()`)
 - Achieved 100% test pass rate (77 tests) with 0 compiler warnings under `-Werror` and 0 Javadoc warnings under doclint
@@ -391,13 +399,13 @@ Please email: <jim.oflaherty.jr+sacrml@gmail.com>, letting us know what license 
 
 - 2026.09.12
 - Integrated changes to `stvnadore-core`
-    - Standard prelude relocated to namespace `:org/stvnadore/prelude/*` and out of root, completely clearing the root namespace
-    - Atomic temporal primitives pruned to nominal prelude schemas
-    - Package enclosures (`:package`) with automatic LHS FQNI expansion
-    - Scoped `:use` with atomic unary `#strip` terminal slicing
-    - Hermetic flat payload tier (newly introduced `.stvn_f`) and flat schema tier (existing `.stvn_inclf`)
-    - Arbitrary bit-width integer overflow enforcement (BigInteger)
-    - Updated shared-fixtures conformance suite
+  - Standard prelude relocated to namespace `:org/stvnadore/prelude/*` and out of root, completely clearing the root namespace
+  - Atomic temporal primitives pruned to nominal prelude schemas
+  - Package enclosures (`:package`) with automatic LHS FQNI expansion
+  - Scoped `:use` with atomic unary `#strip` terminal slicing
+  - Hermetic flat payload tier (newly introduced `.stvn_f`) and flat schema tier (existing `.stvn_inclf`)
+  - Arbitrary bit-width integer overflow enforcement (BigInteger)
+  - Updated shared-fixtures conformance suite
 - Adapted schema resource validation to modular ANTLR4 `defsElement` parse tree productions
 - Verified CAS address invariance (`26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f`)
 - Verified 100% test passing across zero-copy binary wire codecs and multi-game simulation suites
