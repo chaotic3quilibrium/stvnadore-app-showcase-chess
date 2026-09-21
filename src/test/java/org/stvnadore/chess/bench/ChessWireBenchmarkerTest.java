@@ -3,9 +3,15 @@ package org.stvnadore.chess.bench;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.stvnadore.chess.codec.ChessAstMapper;
+import org.stvnadore.chess.codec.ChessBinaryCodec;
 import org.stvnadore.chess.domain.GameHistory;
+import org.stvnadore.core.binary.SchemaIdentityStrategy;
+import org.stvnadore.core.binary.StvnBinaryEncoder;
+import org.stvnadore.core.ir.StvnValue;
 
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,13 +19,16 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ChessWireBenchmarkerTest {
 
   private static ChessWireBenchmarker benchmarker;
+  private static ChessBinaryCodec codec;
+  private static String schemaText;
 
   @BeforeAll
   static void setUp() throws Exception {
     try (InputStream is = ChessWireBenchmarkerTest.class.getResourceAsStream("/schemas/chess_turn.stvn_inclf")) {
       assertNotNull(is);
-      String schema = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-      benchmarker = new ChessWireBenchmarker(schema);
+      schemaText = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+      benchmarker = new ChessWireBenchmarker(schemaText);
+      codec = new ChessBinaryCodec(schemaText);
     }
   }
 
@@ -64,5 +73,54 @@ public class ChessWireBenchmarkerTest {
     byte[] encoded = FlatBinaryCodec.encode(opera);
     GameHistory decoded = FlatBinaryCodec.decode(encoded);
     assertEquals(opera, decoded);
+  }
+
+  @Test
+  @DisplayName("Wire codec throughput benchmark asserts encoding and decoding throughput >= 10,000 turns/second")
+  void testWireCodecThroughputBenchmark() {
+    GameHistory opera = ChessWireBenchmarker.getOperaGame();
+    int turnsPerGame = opera.turns().size();
+    ByteBuffer buf = codec.encode(opera);
+
+    // Warmup decode
+    for (int i = 0; i < 500; i++) {
+      codec.decode(buf.duplicate());
+    }
+
+    // Benchmark Decoding Throughput
+    int decodeIterations = 2000;
+    long startDecode = System.nanoTime();
+    for (int i = 0; i < decodeIterations; i++) {
+      GameHistory decoded = codec.decode(buf.duplicate());
+      assertNotNull(decoded);
+    }
+    long elapsedDecodeNanos = System.nanoTime() - startDecode;
+    double decodeSeconds = elapsedDecodeNanos / 1_000_000_000.0;
+    double decodeTurnsPerSec = (decodeIterations * turnsPerGame) / decodeSeconds;
+
+    // Benchmark Encoding Throughput (AST to Strategy 0x7 Binary Wire)
+    StvnValue ast = ChessAstMapper.toStvnAst(opera, schemaText);
+    var strategy = new SchemaIdentityStrategy.ExplicitSha256(codec.getExpectedSha256Digest());
+    var encoder = new StvnBinaryEncoder(true, strategy, true);
+
+    // Warmup encode
+    for (int i = 0; i < 500; i++) {
+      encoder.encode(ast);
+    }
+
+    int encodeIterations = 5000;
+    long startEncode = System.nanoTime();
+    for (int i = 0; i < encodeIterations; i++) {
+      ByteBuffer encoded = encoder.encode(ast);
+      assertNotNull(encoded);
+    }
+    long elapsedEncodeNanos = System.nanoTime() - startEncode;
+    double encodeSeconds = elapsedEncodeNanos / 1_000_000_000.0;
+    double encodeTurnsPerSec = (encodeIterations * turnsPerGame) / encodeSeconds;
+
+    assertTrue(decodeTurnsPerSec >= 10_000.0,
+        () -> String.format("Decoding throughput %.0f turns/sec must be >= 10,000 turns/sec", decodeTurnsPerSec));
+    assertTrue(encodeTurnsPerSec >= 10_000.0,
+        () -> String.format("Encoding throughput %.0f turns/sec must be >= 10,000 turns/sec", encodeTurnsPerSec));
   }
 }

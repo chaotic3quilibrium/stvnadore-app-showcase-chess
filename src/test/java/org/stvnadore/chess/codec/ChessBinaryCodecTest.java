@@ -55,6 +55,39 @@ public class ChessBinaryCodecTest {
   }
 
   @Test
+  @DisplayName("Isomorphic Strategy 0x7 round-trip for canonical Opera Game (1858)")
+  void testOperaGameRoundTrip() {
+    GameHistory opera = org.stvnadore.chess.bench.ChessWireBenchmarker.getOperaGame();
+    ByteBuffer buffer = codec.encode(opera);
+    assertNotNull(buffer);
+    assertEquals((byte) 0x87, buffer.get(4), "Control byte must evaluate to 0x87");
+    GameHistory decoded = codec.decode(buffer);
+    assertEquals(opera, decoded);
+  }
+
+  @Test
+  @DisplayName("Isomorphic Strategy 0x7 round-trip for canonical Immortal Game (1851)")
+  void testImmortalGameRoundTrip() {
+    GameHistory immortal = org.stvnadore.chess.bench.ChessWireBenchmarker.getImmortalGame();
+    ByteBuffer buffer = codec.encode(immortal);
+    assertNotNull(buffer);
+    assertEquals((byte) 0x87, buffer.get(4), "Control byte must evaluate to 0x87");
+    GameHistory decoded = codec.decode(buffer);
+    assertEquals(immortal, decoded);
+  }
+
+  @Test
+  @DisplayName("Isomorphic Strategy 0x7 round-trip for canonical Kasparov vs Deep Blue (1997)")
+  void testKasparovDeepBlueRoundTrip() {
+    GameHistory kasparov = org.stvnadore.chess.bench.ChessWireBenchmarker.getKasparovDeepBlueGame();
+    ByteBuffer buffer = codec.encode(kasparov);
+    assertNotNull(buffer);
+    assertEquals((byte) 0x87, buffer.get(4), "Control byte must evaluate to 0x87");
+    GameHistory decoded = codec.decode(buffer);
+    assertEquals(kasparov, decoded);
+  }
+
+  @Test
   @DisplayName("Zero-copy flyweight reader inspects GameHistory root tuple without heap deserialization")
   void testZeroCopyRootTupleReading() {
     Move move = new Move(Square.fromAlgebraic("e2"), Square.fromAlgebraic("e4"), Optional.empty(), false, 0);

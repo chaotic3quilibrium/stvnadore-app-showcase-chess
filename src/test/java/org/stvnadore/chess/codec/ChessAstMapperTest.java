@@ -99,4 +99,91 @@ public class ChessAstMapperTest {
     assertEquals(original, reconstructed);
     assertEquals(trickyName, reconstructed.whitePlayer());
   }
+
+  @Test
+  @DisplayName("Passing transposed nominal types (e.g., :Piece where :Square is expected) throws NominalSchemaMismatchException")
+  void testTransposedNominalTypeThrowsException() {
+    String transposedSchema = """
+        {
+          :defs {
+            :package :org/stvnadore/chess {
+              :File             :Enum [ #A #B #C #D #E #F #G #H ]
+              :Rank             { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int
+              :Square           :Tuple( :File :Rank )
+              :Color            :Enum [ #WHITE #BLACK ]
+              :PieceRole        :Enum [ #PAWN #KNIGHT #BISHOP #ROOK #QUEEN #KING ]
+              :Piece            :Tuple( :Color :PieceRole )
+              :PromotionRole    { #filterExcl [ #PAWN #KING ] } :PieceRole
+              :PromotionOption  :Option( :PromotionRole )
+              :IsCapture        :Boolean
+              :HalfmovesSincePawnOrCapture { #unsigned #size 7 #minIncl 0 #maxExcl 101 } :Int
+              :SanMoveString    { #minSize 1 #maxSize 8 } :String
+              :Move             :Tuple( :Piece :Square :PromotionOption :IsCapture :HalfmovesSincePawnOrCapture )
+              :TurnNumber       { #unsigned #size 10 #minIncl 1 } :Int
+              :FenStringFixed   { #minSize 1 #maxSize 128 } :String
+              :ForsythEdwardsNotation :FenStringFixed
+              :CentipawnEvaluation { #size 16 } :Int
+              :TurnState        :Tuple( :TurnNumber :Color :Move :ForsythEdwardsNotation :CentipawnEvaluation )
+              :MatchId          { #minSize 1 #maxSize 64 } :String
+              :PlayerName       { #minSize 1 #maxSize 64 } :String
+              :WhitePlayer      :PlayerName
+              :BlackPlayer      :PlayerName
+              :TerminalOutcome  :Enum [ #WHITE_WIN #BLACK_WIN #DRAW ]
+              :MatchResult      :Option( :TerminalOutcome )
+              :GameHistory      :Tuple( :MatchId :WhitePlayer :BlackPlayer :Seq( :TurnState ) :MatchResult )
+            }
+            :use [ :org/stvnadore/chess { #strip } ]
+          }
+          :type :GameHistory
+          :body (
+            "transposed-test"
+            "White"
+            "Black"
+            [
+              ( 1 #WHITE ( ( #WHITE #PAWN ) ( #E 4 ) #None #FALSE 0 ) "fen" 0 )
+            ]
+            #None
+          )
+        }
+        """;
+
+    StvnValue transposedAst = StvnCompiler.compile(transposedSchema)
+        .orElseThrow(() -> new IllegalStateException("Failed to compile transposed test document"));
+
+    NominalSchemaMismatchException ex = assertThrows(
+        NominalSchemaMismatchException.class,
+        () -> ChessAstMapper.fromStvnAst(transposedAst)
+    );
+
+    assertEquals(":Square", ex.expectedAlias());
+    assertTrue(ex.actualAlias().endsWith("Piece"), () -> "Actual alias should end with Piece: " + ex.actualAlias());
+    assertEquals("turns[0].move.from", ex.path());
+    assertNotNull(ex.offendingNode());
+  }
+
+  @Test
+  @DisplayName("Root AST lacking :GameHistory nominal alias throws NominalSchemaMismatchException at path 'root'")
+  void testRootNominalMismatchThrowsException() {
+    String invalidRootDoc = """
+        {
+          :defs {
+            :UserAccount :Tuple( :String :String :String :Seq( :Int ) :Option( :Boolean ) )
+          }
+          :type :UserAccount
+          :body ( "id" "user1" "user2" [] #None )
+        }
+        """;
+
+    StvnValue invalidRootAst = StvnCompiler.compile(invalidRootDoc)
+        .orElseThrow(() -> new IllegalStateException("Failed to compile invalid root document"));
+
+    NominalSchemaMismatchException ex = assertThrows(
+        NominalSchemaMismatchException.class,
+        () -> ChessAstMapper.fromStvnAst(invalidRootAst)
+    );
+
+    assertEquals(":GameHistory", ex.expectedAlias());
+    assertTrue(ex.actualAlias().endsWith("UserAccount"));
+    assertEquals("root", ex.path());
+  }
 }

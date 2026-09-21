@@ -73,7 +73,7 @@ Every `.stvn_bin` bytecode payload emitted by `ChessBinaryCodec` embeds the 32-b
 ```
 
 ### Protection Against Poisoned Payloads
-If an adversary mutates the schema definition, alters bit-width constraints, or injects malicious payloads, `StvnBinaryDecoder` detects the cryptographic hash mismatch at byte offset 5 and immediately halts deserialization with a `PoisonedRegistryPayloadException`. Under `stvnadore-core:1.3.0`, the canonical schema CAS digest is `39bab41f6b73910b99018ce4667b0ac8a0c80cbe4db8eb36f702812dcb6bacbb`, featuring bounded nominal strings (`:FenStringFixed :String128`, `:SanMoveString :String8`, `:PlayerName :String64`, `:MatchId :String64`), `:package :org/stvnadore/chess`, and strict zero-tab invariant enforcement (`ERR_TAB_CHARACTER_FORBIDDEN`).
+If an adversary mutates the schema definition, alters bit-width constraints, or injects malicious payloads, `StvnBinaryDecoder` detects the cryptographic hash mismatch at byte offset 5 and immediately halts deserialization with a `PoisonedRegistryPayloadException`. Under `stvnadore-core:2.0.0-SNAPSHOT`, the canonical schema CAS digest is `630a9ad15763ea9b97240cb6417b23e1c7e45603f5a727ccd05181c511804fd6`, featuring factorized scalar types, discrete half-open intervals (`[1, 9)`, `[0, 101)`), bounded nominal strings (`{ #minSize 1 #maxSize 128 } :String`, `{ #minSize 1 #maxSize 8 } :String`, `{ #minSize 1 #maxSize 64 } :String`), `:package :org/stvnadore/chess`, and strict zero-tab invariant enforcement (`ERR_TAB_CHARACTER_FORBIDDEN`).
 
 ```bash
 # Verify poisoned payload rejection via CLI:

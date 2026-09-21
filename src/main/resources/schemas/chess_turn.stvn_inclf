@@ -4,7 +4,7 @@
     :package :org/stvnadore/chess {
       // --- Board Coordinates & Pieces ---
       :File             :Enum [ #A #B #C #D #E #F #G #H ]
-      :Rank             { #minIncl 1 #maxIncl 8 } :Uint4
+      :Rank             { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int
       :Square           :Tuple( :File :Rank )
 
       :Color            :Enum [ #WHITE #BLACK ]
@@ -15,20 +15,20 @@
       :PromotionRole    { #filterExcl [ #PAWN #KING ] } :PieceRole
       :PromotionOption  :Option( :PromotionRole )
       :IsCapture        :Boolean
-      :HalfmovesSincePawnOrCapture { #maxIncl 100 } :Uint7
-      :SanMoveString    :String8
+      :HalfmovesSincePawnOrCapture { #unsigned #size 7 #minIncl 0 #maxExcl 101 } :Int
+      :SanMoveString    { #minSize 1 #maxSize 8 } :String
       :Move             :Tuple( :Square :Square :PromotionOption :IsCapture :HalfmovesSincePawnOrCapture )
 
       // --- Turn Evaluation & State Tracking ---
-      :TurnNumber       { #minIncl 1 } :Uint10
-      :FenStringFixed   :String128
+      :TurnNumber       { #unsigned #size 10 #minIncl 1 } :Int
+      :FenStringFixed   { #minSize 1 #maxSize 128 } :String
       :ForsythEdwardsNotation :FenStringFixed
-      :CentipawnEvaluation :Int16
+      :CentipawnEvaluation { #size 16 } :Int
       :TurnState        :Tuple( :TurnNumber :Color :Move :ForsythEdwardsNotation :CentipawnEvaluation )
 
       // --- Match Metadata & Outcomes ---
-      :MatchId          :String64
-      :PlayerName       :String64
+      :MatchId          { #minSize 1 #maxSize 64 } :String
+      :PlayerName       { #minSize 1 #maxSize 64 } :String
       :WhitePlayer      :PlayerName
       :BlackPlayer      :PlayerName
       :TerminalOutcome  :Enum [ #WHITE_WIN #BLACK_WIN #DRAW ]

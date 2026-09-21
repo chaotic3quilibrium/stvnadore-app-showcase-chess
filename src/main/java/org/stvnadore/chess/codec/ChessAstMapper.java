@@ -105,53 +105,123 @@ public final class ChessAstMapper {
    */
   public static GameHistory fromStvnAst(StvnValue ast) {
     Objects.requireNonNull(ast, "ast must not be null");
-    if (!(ast instanceof StvnValue.StvnTuple rootTuple) || rootTuple.elements().size() < 5) {
-      throw new IllegalStateException("Invalid root AST structure for GameHistory: " + ast);
-    }
+    assertNominalSchema(ast, "GameHistory", "root");
+    StvnValue.StvnTuple rootTuple = assertTuple(ast, 5, "root");
 
-    String gameId = unescape(((StvnValue.StvnString) rootTuple.elements().get(0)).value());
-    String whitePlayer = unescape(((StvnValue.StvnString) rootTuple.elements().get(1)).value());
-    String blackPlayer = unescape(((StvnValue.StvnString) rootTuple.elements().get(2)).value());
+    String gameId = unescape(assertString(rootTuple.elements().get(0), "root.gameId").value());
+    String whitePlayer = unescape(assertString(rootTuple.elements().get(1), "root.whitePlayer").value());
+    String blackPlayer = unescape(assertString(rootTuple.elements().get(2), "root.blackPlayer").value());
 
-    StvnValue.StvnSeq turnsSeq = (StvnValue.StvnSeq) rootTuple.elements().get(3);
+    StvnValue.StvnSeq turnsSeq = assertSeq(rootTuple.elements().get(3), "root.turns");
     List<TurnState> turns = new ArrayList<>();
 
-    for (StvnValue turnVal : turnsSeq.elements()) {
-      StvnValue.StvnTuple turnTuple = (StvnValue.StvnTuple) turnVal;
-      long turnNumber = ((StvnValue.StvnInteger) turnTuple.elements().get(0)).value().longValue();
-      String colorStr = stripHash(((StvnValue.StvnEnum) turnTuple.elements().get(1)).keyword());
+    for (int i = 0; i < turnsSeq.elements().size(); i++) {
+      StvnValue turnVal = turnsSeq.elements().get(i);
+      String turnPath = "turns[" + i + "]";
+      assertNominalSchema(turnVal, "TurnState", turnPath);
+      StvnValue.StvnTuple turnTuple = assertTuple(turnVal, 5, turnPath);
+
+      long turnNumber = assertInteger(turnTuple.elements().get(0), turnPath + ".turnNumber").value().longValue();
+      String colorStr = stripHash(assertEnum(turnTuple.elements().get(1), turnPath + ".color").keyword());
       Piece.PieceColor activeColor = Piece.PieceColor.valueOf(colorStr.toUpperCase(Locale.ROOT));
 
-      StvnValue.StvnTuple moveTuple = (StvnValue.StvnTuple) turnTuple.elements().get(2);
-      Square from = mapSquare((StvnValue.StvnTuple) moveTuple.elements().get(0));
-      Square to = mapSquare((StvnValue.StvnTuple) moveTuple.elements().get(1));
+      StvnValue moveVal = turnTuple.elements().get(2);
+      String movePath = turnPath + ".move";
+      assertNominalSchema(moveVal, "Move", movePath);
+      StvnValue.StvnTuple moveTuple = assertTuple(moveVal, 5, movePath);
 
-      StvnValue.StvnOption promoOpt = (StvnValue.StvnOption) moveTuple.elements().get(2);
-      Optional<Move.PromotionRole> promo = promoOpt.value().map(v ->
-          Move.PromotionRole.valueOf(stripHash(((StvnValue.StvnEnum) v).keyword()).toUpperCase(Locale.ROOT)));
+      Square from = mapSquare(moveTuple.elements().get(0), movePath + ".from");
+      Square to = mapSquare(moveTuple.elements().get(1), movePath + ".to");
 
-      boolean isCapture = ((StvnValue.StvnBoolean) moveTuple.elements().get(3)).value();
-      int halfmoves = ((StvnValue.StvnInteger) moveTuple.elements().get(4)).value().intValue();
+      StvnValue.StvnOption promoOpt = assertOption(moveTuple.elements().get(2), movePath + ".promotion");
+      Optional<Move.PromotionRole> promo = promoOpt.value().map(v -> {
+        StvnValue.StvnEnum promoEnum = assertEnum(v, movePath + ".promotion.role");
+        return Move.PromotionRole.valueOf(stripHash(promoEnum.keyword()).toUpperCase(Locale.ROOT));
+      });
+
+      boolean isCapture = assertBoolean(moveTuple.elements().get(3), movePath + ".isCapture").value();
+      int halfmoves = assertInteger(moveTuple.elements().get(4), movePath + ".halfmoves").value().intValue();
 
       Move move = new Move(from, to, promo, isCapture, halfmoves);
-      String fen = unescape(((StvnValue.StvnString) turnTuple.elements().get(3)).value());
-      int turnEval = ((StvnValue.StvnInteger) turnTuple.elements().get(4)).value().intValue();
+      String fen = unescape(assertString(turnTuple.elements().get(3), turnPath + ".fen").value());
+      int turnEval = assertInteger(turnTuple.elements().get(4), turnPath + ".eval").value().intValue();
 
       turns.add(new TurnState(turnNumber, activeColor, move, fen, turnEval));
     }
 
-    StvnValue.StvnOption resultOpt = (StvnValue.StvnOption) rootTuple.elements().get(4);
-    Optional<GameHistory.TerminalOutcome> result = resultOpt.value().map(v ->
-        GameHistory.TerminalOutcome.valueOf(stripHash(((StvnValue.StvnEnum) v).keyword()).toUpperCase(Locale.ROOT)));
+    StvnValue.StvnOption resultOpt = assertOption(rootTuple.elements().get(4), "root.result");
+    Optional<GameHistory.TerminalOutcome> result = resultOpt.value().map(v -> {
+      StvnValue.StvnEnum resultEnum = assertEnum(v, "root.result.outcome");
+      return GameHistory.TerminalOutcome.valueOf(stripHash(resultEnum.keyword()).toUpperCase(Locale.ROOT));
+    });
 
     return new GameHistory(gameId, whitePlayer, blackPlayer, turns, result);
   }
 
-  private static Square mapSquare(StvnValue.StvnTuple squareTuple) {
-    String fileStr = stripHash(((StvnValue.StvnEnum) squareTuple.elements().get(0)).keyword());
+  private static Square mapSquare(StvnValue squareVal, String path) {
+    assertNominalSchema(squareVal, "Square", path);
+    StvnValue.StvnTuple squareTuple = assertTuple(squareVal, 2, path);
+    String fileStr = stripHash(assertEnum(squareTuple.elements().get(0), path + ".file").keyword());
     Square.File file = Square.File.valueOf(fileStr.toUpperCase(Locale.ROOT));
-    int rank = ((StvnValue.StvnInteger) squareTuple.elements().get(1)).value().intValue();
+    int rank = assertInteger(squareTuple.elements().get(1), path + ".rank").value().intValue();
     return new Square(file, rank);
+  }
+
+  private static void assertNominalSchema(StvnValue node, String expectedSuffix, String path) {
+    String alias = node.schema().aliasName().orElse(null);
+    if (alias == null || (!alias.equals(":" + expectedSuffix) && !alias.endsWith("/" + expectedSuffix))) {
+      throw new NominalSchemaMismatchException(":" + expectedSuffix, alias, path, node);
+    }
+  }
+
+  private static StvnValue.StvnTuple assertTuple(StvnValue node, int size, String path) {
+    if (!(node instanceof StvnValue.StvnTuple t) || t.elements().size() != size) {
+      String actual = node instanceof StvnValue.StvnTuple t2 ? "Tuple of arity " + t2.elements().size() : node.getClass().getSimpleName();
+      throw new NominalSchemaMismatchException("Tuple of arity " + size, actual, path, node);
+    }
+    return t;
+  }
+
+  private static StvnValue.StvnString assertString(StvnValue node, String path) {
+    if (!(node instanceof StvnValue.StvnString s)) {
+      throw new NominalSchemaMismatchException(":String", node.getClass().getSimpleName(), path, node);
+    }
+    return s;
+  }
+
+  private static StvnValue.StvnInteger assertInteger(StvnValue node, String path) {
+    if (!(node instanceof StvnValue.StvnInteger i)) {
+      throw new NominalSchemaMismatchException(":Int", node.getClass().getSimpleName(), path, node);
+    }
+    return i;
+  }
+
+  private static StvnValue.StvnEnum assertEnum(StvnValue node, String path) {
+    if (!(node instanceof StvnValue.StvnEnum e)) {
+      throw new NominalSchemaMismatchException(":Enum", node.getClass().getSimpleName(), path, node);
+    }
+    return e;
+  }
+
+  private static StvnValue.StvnOption assertOption(StvnValue node, String path) {
+    if (!(node instanceof StvnValue.StvnOption o)) {
+      throw new NominalSchemaMismatchException(":Option", node.getClass().getSimpleName(), path, node);
+    }
+    return o;
+  }
+
+  private static StvnValue.StvnSeq assertSeq(StvnValue node, String path) {
+    if (!(node instanceof StvnValue.StvnSeq s)) {
+      throw new NominalSchemaMismatchException(":Seq", node.getClass().getSimpleName(), path, node);
+    }
+    return s;
+  }
+
+  private static StvnValue.StvnBoolean assertBoolean(StvnValue node, String path) {
+    if (!(node instanceof StvnValue.StvnBoolean b)) {
+      throw new NominalSchemaMismatchException(":Boolean", node.getClass().getSimpleName(), path, node);
+    }
+    return b;
   }
 
   private static String extractDefsBlock(String schemaContent) {

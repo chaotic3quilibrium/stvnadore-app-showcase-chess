@@ -34,6 +34,9 @@ public class SchemaResourceValidationTest {
 
   private static final String SCHEMAS_RESOURCE_DIR = "/schemas";
   private static final String KNOWN_CANONICAL_CAS_HASH =
+      "630a9ad15763ea9b97240cb6417b23e1c7e45603f5a727ccd05181c511804fd6";
+  @SuppressWarnings("unused")
+  private static final String LEGACY_1_3_1_CAS_HASH =
       "39bab41f6b73910b99018ce4667b0ac8a0c80cbe4db8eb36f702812dcb6bacbb";
   @SuppressWarnings("unused")
   private static final String LEGACY_1_2_0_CAS_HASH =

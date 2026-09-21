@@ -148,6 +148,26 @@ public class ChessWireBenchmarker {
   }
 
   /**
+   * Generates Anderssen vs Kieseritzky (The Immortal Game, 1851-06-21).
+   *
+   * @return GameHistory snapshot of the Immortal Game
+   */
+  public static GameHistory getImmortalGame() {
+    String[][] immortalMoves = {
+        {"e2", "e4"}, {"e7", "e5"}, {"f2", "f4"}, {"e5", "f4"}, {"f1", "c4"},
+        {"d8", "h4"}, {"e1", "f1"}, {"b7", "b5"}, {"c4", "b5"}, {"g8", "f6"},
+        {"g1", "f3"}, {"h4", "h6"}, {"d2", "d3"}, {"f6", "h5"}, {"f3", "h4"},
+        {"h6", "g5"}, {"h4", "f5"}, {"c7", "c6"}, {"g2", "g4"}, {"h5", "f6"},
+        {"h1", "g1"}, {"c6", "b5"}, {"h2", "h4"}, {"g5", "g6"}, {"h4", "h5"},
+        {"g6", "g5"}, {"d1", "f3"}, {"f6", "g8"}, {"c1", "f4"}, {"g5", "f6"},
+        {"b1", "c3"}, {"f8", "c5"}, {"c3", "d5"}, {"f6", "b2"}, {"f4", "d6"},
+        {"c5", "g1"}, {"e4", "e5"}, {"b2", "a1"}, {"f1", "e2"}, {"b8", "a6"},
+        {"f5", "g7"}, {"e8", "d8"}, {"f3", "f6"}, {"g8", "f6"}, {"d6", "e7"}
+    };
+    return replayMoveArray("immortal-game-1851", "Adolf Anderssen", "Lionel Kieseritzky", immortalMoves);
+  }
+
+  /**
    * Generates a randomized legal match of target plies.
    *
    * @param matchId unique match identifier
