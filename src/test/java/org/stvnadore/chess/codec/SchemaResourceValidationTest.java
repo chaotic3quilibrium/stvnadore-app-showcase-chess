@@ -6,6 +6,7 @@ import org.stvnadore.core.StvnCompilationResult;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.StvnSchemaFlattener;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.validation.DiagnosticBag;
@@ -194,5 +195,34 @@ public class SchemaResourceValidationTest {
     ChessBinaryCodec codec = new ChessBinaryCodec(schemaContent);
     assertEquals(KNOWN_CANONICAL_CAS_HASH, codec.getCasHashHex(),
         "Schema CAS hash must remain completely invariant after remediation");
+  }
+
+  @Test
+  @DisplayName("StvnSchemaFlattener flattens chess_turn.stvn_inclf under 7-tier Semantic Category Order")
+  void testSchemaFlattenerSevenTierOrder() throws Exception {
+    var resource = getClass().getResource("/schemas/chess_turn.stvn_inclf");
+    assertNotNull(resource, "Schema resource must exist");
+    String schemaContent = Files.readString(Paths.get(resource.toURI()), StandardCharsets.UTF_8);
+
+    String flattened = StvnSchemaFlattener.flatten(Map.of("chess_turn.stvn_inclf", schemaContent), "chess_turn.stvn_inclf");
+    assertNotNull(flattened, "Flattened schema string must not be null");
+
+    // Verify 7-tier ordering: Tier 1 (#unsigned) -> Tier 3 (#size / #minSize / #maxSize) -> Tier 4 (#minIncl / #maxExcl)
+    assertTrue(flattened.contains(":org/stvnadore/chess/Rank { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int"),
+        "Rank must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
+    assertTrue(flattened.contains(":org/stvnadore/chess/HalfmovesSincePawnOrCapture { #unsigned #size 7 #minIncl 0 #maxExcl 101 } :Int"),
+        "HalfmovesSincePawnOrCapture must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
+    assertTrue(flattened.contains(":org/stvnadore/chess/TurnNumber { #unsigned #size 10 #minIncl 1 } :Int"),
+        "TurnNumber must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
+    assertTrue(flattened.contains(":org/stvnadore/chess/CentipawnEvaluation { #size 16 } :Int"),
+        "CentipawnEvaluation must declare bit-width in Tier 3");
+    assertTrue(flattened.contains(":org/stvnadore/chess/SanMoveString { #minSize 1 #maxSize 8 } :String"),
+        "SanMoveString must declare string bounds in Tier 3");
+    assertTrue(flattened.contains(":org/stvnadore/chess/FenStringFixed { #minSize 1 #maxSize 128 } :String"),
+        "FenStringFixed must declare string bounds in Tier 3");
+    assertTrue(flattened.contains(":org/stvnadore/chess/MatchId { #minSize 1 #maxSize 64 } :String"),
+        "MatchId must declare string bounds in Tier 3");
+    assertTrue(flattened.contains(":org/stvnadore/chess/PlayerName { #minSize 1 #maxSize 64 } :String"),
+        "PlayerName must declare string bounds in Tier 3");
   }
 }
