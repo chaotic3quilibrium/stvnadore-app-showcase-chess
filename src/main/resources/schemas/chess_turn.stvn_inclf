@@ -1,5 +1,5 @@
 {
-  // chess_turn.stvn_inclf
+  // @spec: STVN-SPEC-CHESS-01
   :defs {
     :package :org/stvnadore/chess {
       // --- Board Coordinates & Pieces ---

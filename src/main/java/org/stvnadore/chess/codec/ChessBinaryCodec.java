@@ -65,6 +65,15 @@ public class ChessBinaryCodec {
   }
 
   /**
+   * Returns the compiled ResolvedSchema definition for this codec.
+   *
+   * @return resolved schema instance
+   */
+  public ResolvedSchema getResolvedSchema() {
+    return resolvedSchema;
+  }
+
+  /**
    * Encodes a GameHistory domain record into an STVN binary byte buffer using Strategy 0x07
    * and appends a 4-byte CRC-32C trailer framing.
    *

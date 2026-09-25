@@ -99,18 +99,20 @@ public class ChessSerializationFuzzTest {
     byte[] validBytes = new byte[validBuffer.remaining()];
     validBuffer.get(validBytes);
 
-    // Flip random byte in header (0..36). At index 4, bit 7 controls CRC trailer presence;
-    // mutating bits 0..6 corrupts encoding/strategy format.
-    int headerIndex = rng.nextInt(37);
+    int targetIndex = rng.nextInt(validBytes.length);
     int bitIndex = rng.nextInt(8);
-    if (headerIndex == 4 && bitIndex == 7) {
-      bitIndex = rng.nextInt(7);
-    }
-    byte[] corruptedHeader = validBytes.clone();
-    corruptedHeader[headerIndex] ^= (byte) (1 << bitIndex);
+    byte[] corrupted = validBytes.clone();
+    corrupted[targetIndex] ^= (byte) (1 << bitIndex);
 
-    assertThrows(Exception.class, () -> codec.decode(ByteBuffer.wrap(corruptedHeader)),
-        "Corrupted header at index " + headerIndex + " must be rejected");
+    Class<? extends Throwable> expectedException = (targetIndex < 4)
+        ? IllegalArgumentException.class
+        : MalformedPayloadException.class;
+
+    assertThrows(
+        expectedException,
+        () -> codec.decode(ByteBuffer.wrap(corrupted)),
+        "Corrupted byte at index " + targetIndex + " must be rejected with " + expectedException.getSimpleName()
+    );
   }
 
   @Test

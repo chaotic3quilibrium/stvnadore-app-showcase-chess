@@ -10,10 +10,13 @@ import org.stvnadore.chess.domain.Piece;
 import org.stvnadore.chess.domain.Square;
 import org.stvnadore.chess.domain.TurnState;
 import org.stvnadore.core.binary.exceptions.PoisonedRegistryPayloadException;
+import org.stvnadore.core.validation.MalformedPayloadException;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.zip.CRC32C;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -71,11 +74,10 @@ public class PayloadCorruptionFuzzTest {
   }
 
   @Test
-  @DisplayName("All 32 SHA-256 header digest bytes (offsets 5..36) strictly throw PoisonedRegistryPayloadException")
+  @DisplayName("All 32 SHA-256 header digest bytes (offsets 5..36) with recomputed CRC strictly throw PoisonedRegistryPayloadException")
   void testHeaderSha256EveryByteTamperRejection() {
     GameHistory game = buildRepresentativeGame();
-    // Test isolated header tampering without trailer masking
-    ByteBuffer validBuffer = codec.encode(game, false);
+    ByteBuffer validBuffer = codec.encode(game);
     byte[] validBytes = new byte[validBuffer.remaining()];
     validBuffer.get(validBytes);
 
@@ -83,10 +85,36 @@ public class PayloadCorruptionFuzzTest {
       byte[] tampered = validBytes.clone();
       tampered[offset] ^= 0x01; // Single bit mutation
 
+      // Recompute CRC-32C trailer so wire integrity check passes, isolating schema CAS verification
+      CRC32C crc = new CRC32C();
+      crc.update(tampered, 0, tampered.length - 4);
+      int newCrc = (int) crc.getValue();
+      ByteBuffer.wrap(tampered).order(ByteOrder.LITTLE_ENDIAN).putInt(tampered.length - 4, newCrc);
+
       assertThrows(
           PoisonedRegistryPayloadException.class,
           () -> codec.decode(ByteBuffer.wrap(tampered)),
-          "Bit flip in SHA-256 digest at offset " + offset + " must raise PoisonedRegistryPayloadException"
+          "Forged SHA-256 digest at offset " + offset + " with valid CRC must raise PoisonedRegistryPayloadException"
+      );
+    }
+  }
+
+  @Test
+  @DisplayName("Raw bit flips in SHA-256 header digest without CRC recomputation strictly fail closed with MalformedPayloadException")
+  void testHeaderSha256RawBitFlipFailsClosedWithMalformedPayloadException() {
+    GameHistory game = buildRepresentativeGame();
+    ByteBuffer validBuffer = codec.encode(game);
+    byte[] validBytes = new byte[validBuffer.remaining()];
+    validBuffer.get(validBytes);
+
+    for (int offset = 5; offset <= 36; offset++) {
+      byte[] tampered = validBytes.clone();
+      tampered[offset] ^= 0x01; // Single bit mutation without trailer update
+
+      assertThrows(
+          MalformedPayloadException.class,
+          () -> codec.decode(ByteBuffer.wrap(tampered)),
+          "Raw bit flip at offset " + offset + " must trigger MalformedPayloadException via CRC-32C"
       );
     }
   }

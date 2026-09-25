@@ -46,9 +46,12 @@ public class ChessBinaryCodecTest {
     assertNotNull(buffer);
     assertTrue(buffer.remaining() > 41, "Encoded binary should contain 37B header, payload, and 4B CRC trailer");
 
-    // Assert Byte 4 Bit 7 is set (0x87 for Strategy 0x07 with CRC-32C trailer)
-    byte controlByte = buffer.get(4);
-    assertEquals((byte) 0x87, controlByte, "Control byte must pack Bit 7 (CRC-32C) and Strategy 0x07");
+    // Assert Bytes 0..3: ASCII 'STVN' in network byte order and Byte 4 Control Byte 0x87
+    assertEquals((byte) 'S', buffer.get(0), "Byte 0 must be 'S'");
+    assertEquals((byte) 'T', buffer.get(1), "Byte 1 must be 'T'");
+    assertEquals((byte) 'V', buffer.get(2), "Byte 2 must be 'V'");
+    assertEquals((byte) 'N', buffer.get(3), "Byte 3 must be 'N'");
+    assertEquals((byte) 0x87, buffer.get(4), "Byte 4 must be Control Byte 0x87");
 
     GameHistory decoded = codec.decode(buffer);
     assertEquals(original, decoded);

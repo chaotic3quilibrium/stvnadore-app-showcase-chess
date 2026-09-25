@@ -169,12 +169,11 @@ flowchart TD
     classDef digest fill:#E8F5E9,stroke:#388E3C,stroke-width:2px;
 
     subgraph "Binary Wire Frame Layout (Little-Endian)"
-        H1["Bytes 0-2: Magic 'STV' (0x53 0x54 0x56)"]:::wire
-        H2["Byte 3: Protocol Version 0x01"]:::wire
-        H3["Byte 4: Control Byte 0x87 (Bit 7=CRC-32C, Bits 0-3=Strategy 0x7)"]:::wire
-        H4["Bytes 5-36: 32-Byte SHA-256 CAS Schema Digest"]:::digest
-        H5["Bytes 37..N-4: Bit-Packed AST Payload Slices"]:::wire
-        H6["Bytes N-4..N: 4-Byte IEEE 802.3 CRC-32C Trailer"]:::crc
+        H1["Bytes 0-3: Magic 'STVN' (0x53 0x54 0x56 0x4E)"]:::wire
+        H2["Byte 4: Control Byte 0x87 (Bit 7=CRC-32C, Bits 0-3=Strategy 0x7)"]:::wire
+        H3["Bytes 5-36: 32-Byte SHA-256 CAS Schema Digest"]:::digest
+        H4["Bytes 37..N-4: Bit-Packed AST Payload Slices"]:::wire
+        H5["Bytes N-4..N: 4-Byte IEEE 802.3 CRC-32C Trailer"]:::crc
     end
 ```
 
@@ -188,7 +187,7 @@ Strategy `0x7` wire frames specify Byte 4 as follows:
 ### 4.2 Zero-Trust Verification Pipeline
 
 When reading an incoming binary stream, `ChessBinaryCodec` executes a four-stage zero-trust check:
-1. **Magic Byte Verification:** Confirms Bytes 0–2 equal `0x53 0x54 0x56`.
+1. **Magic Byte Verification:** Confirms Bytes 0–3 equal ASCII `'STVN'` (`0x53 0x54 0x56 0x4E`) in Network Byte Order.
 2. **CRC-32C Integrity Verification:** Computes the CRC-32C checksum over Bytes $0 \dots N-4$. Compares the result against the final 4 bytes. Any mismatch throws `MalformedPayloadException`.
 3. **Cryptographic CAS Hash Parity:** Extracts Bytes 5–36. Compares the digest against the compiled schema digest. A mismatch throws `PoisonedRegistryPayloadException`.
 4. **Registry Fallback Resolution:** If the schema is not cached locally, queries `GET /api/v1/schemas/cas/{hash}` on `stvnadore-repository`.

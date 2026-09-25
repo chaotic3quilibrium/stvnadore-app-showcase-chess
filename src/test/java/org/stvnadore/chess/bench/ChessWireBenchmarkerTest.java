@@ -13,6 +13,7 @@ import org.stvnadore.core.ir.StvnValue;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -76,27 +77,39 @@ public class ChessWireBenchmarkerTest {
   }
 
   @Test
-  @DisplayName("Wire codec throughput benchmark asserts encoding and decoding throughput >= 10,000 turns/second")
+  @DisplayName("Wire codec throughput benchmark asserts encoding and decoding throughput >= 50,000 turns/second")
   void testWireCodecThroughputBenchmark() {
     GameHistory opera = ChessWireBenchmarker.getOperaGame();
     int turnsPerGame = opera.turns().size();
     ByteBuffer buf = codec.encode(opera);
 
-    // Warmup decode
-    for (int i = 0; i < 500; i++) {
-      codec.decode(buf.duplicate());
+    // Warmup flyweight decode
+    for (int i = 0; i < 2000; i++) {
+      var reader = codec.openRootTuple(buf.duplicate());
+      assertEquals(5, reader.size());
     }
 
-    // Benchmark Decoding Throughput
-    int decodeIterations = 2000;
+    // Benchmark Wire Decoding Throughput (Zero-Copy Flyweight Reader)
+    int decodeIterations = 5000;
     long startDecode = System.nanoTime();
     for (int i = 0; i < decodeIterations; i++) {
-      GameHistory decoded = codec.decode(buf.duplicate());
-      assertNotNull(decoded);
+      var reader = codec.openRootTuple(buf.duplicate());
+      assertNotNull(reader);
     }
     long elapsedDecodeNanos = System.nanoTime() - startDecode;
     double decodeSeconds = elapsedDecodeNanos / 1_000_000_000.0;
     double decodeTurnsPerSec = (decodeIterations * turnsPerGame) / decodeSeconds;
+    System.out.println("Wire Decoding (Flyweight) Throughput: " + decodeTurnsPerSec + " turns/sec");
+
+    // Benchmark Full AST Deserialization Throughput
+    long startFullDecode = System.nanoTime();
+    for (int i = 0; i < 500; i++) {
+      GameHistory decoded = codec.decode(buf.duplicate());
+      assertNotNull(decoded);
+    }
+    long elapsedFullDecodeNanos = System.nanoTime() - startFullDecode;
+    double fullDecodeTurnsPerSec = (500 * turnsPerGame) / (elapsedFullDecodeNanos / 1_000_000_000.0);
+    System.out.println("Full AST Decoding Throughput: " + fullDecodeTurnsPerSec + " turns/sec");
 
     // Benchmark Encoding Throughput (AST to Strategy 0x7 Binary Wire)
     StvnValue ast = ChessAstMapper.toStvnAst(opera, schemaText);
@@ -104,7 +117,7 @@ public class ChessWireBenchmarkerTest {
     var encoder = new StvnBinaryEncoder(true, strategy, true);
 
     // Warmup encode
-    for (int i = 0; i < 500; i++) {
+    for (int i = 0; i < 2000; i++) {
       encoder.encode(ast);
     }
 
@@ -117,10 +130,13 @@ public class ChessWireBenchmarkerTest {
     long elapsedEncodeNanos = System.nanoTime() - startEncode;
     double encodeSeconds = elapsedEncodeNanos / 1_000_000_000.0;
     double encodeTurnsPerSec = (encodeIterations * turnsPerGame) / encodeSeconds;
+    System.out.println("Wire Encoding Throughput: " + encodeTurnsPerSec + " turns/sec");
 
-    assertTrue(decodeTurnsPerSec >= 10_000.0,
-        () -> String.format("Decoding throughput %.0f turns/sec must be >= 10,000 turns/sec", decodeTurnsPerSec));
-    assertTrue(encodeTurnsPerSec >= 10_000.0,
-        () -> String.format("Encoding throughput %.0f turns/sec must be >= 10,000 turns/sec", encodeTurnsPerSec));
+    assertTrue(decodeTurnsPerSec >= 50_000.0,
+        () -> String.format("Decoding throughput %.0f turns/sec must be >= 50,000 turns/sec", decodeTurnsPerSec));
+    assertTrue(encodeTurnsPerSec >= 50_000.0,
+        () -> String.format("Encoding throughput %.0f turns/sec must be >= 50,000 turns/sec", encodeTurnsPerSec));
+    assertTrue(fullDecodeTurnsPerSec >= 10_000.0,
+        () -> String.format("Full AST decoding throughput %.0f turns/sec must be >= 10,000 turns/sec", fullDecodeTurnsPerSec));
   }
 }
