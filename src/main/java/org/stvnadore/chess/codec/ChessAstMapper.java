@@ -6,6 +6,7 @@ import org.stvnadore.chess.domain.Piece;
 import org.stvnadore.chess.domain.Square;
 import org.stvnadore.chess.domain.TurnState;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnValue;
 
 import java.util.ArrayList;
@@ -35,16 +36,16 @@ public final class ChessAstMapper {
     Objects.requireNonNull(schemaContent, "schemaContent must not be null");
 
     String defsBlock = extractDefsBlock(schemaContent);
-    if (defsBlock.contains(":package :org/stvnadore/chess")) {
+    if (defsBlock.contains(StvnVocabulary.KEYWORD_PACKAGE + " :org/stvnadore/chess")) {
       int lastBrace = defsBlock.lastIndexOf('}');
-      defsBlock = defsBlock.substring(0, lastBrace) + "  :use [ :org/stvnadore/chess { #strip } ]\n  }";
+      defsBlock = defsBlock.substring(0, lastBrace) + "  " + StvnVocabulary.KEYWORD_USE + " [ :org/stvnadore/chess { " + StvnVocabulary.FACET_KW_STRIP + " } ]\n  }";
     }
 
     StringBuilder sb = new StringBuilder();
     sb.append("{\n");
     sb.append(defsBlock).append("\n\n");
-    sb.append("  :type :GameHistory\n");
-    sb.append("  :body (\n");
+    sb.append("  ").append(StvnVocabulary.KEYWORD_TYPE).append(" :GameHistory\n");
+    sb.append("  ").append(StvnVocabulary.KEYWORD_BODY).append(" (\n");
     sb.append("    \"").append(escape(game.gameId())).append("\"\n");
     sb.append("    \"").append(escape(game.whitePlayer())).append("\"\n");
     sb.append("    \"").append(escape(game.blackPlayer())).append("\"\n");
@@ -53,16 +54,16 @@ public final class ChessAstMapper {
     for (TurnState turn : game.turns()) {
       sb.append("      (\n");
       sb.append("        ").append(turn.turnNumber()).append("\n");
-      sb.append("        #").append(turn.activeColor().name()).append("\n");
+      sb.append("        ").append(StvnVocabulary.SIGIL_VALUE).append(turn.activeColor().name()).append("\n");
       sb.append("        (\n");
-      sb.append("          ( #").append(turn.move().from().file().name()).append(" ").append(turn.move().from().rank()).append(" )\n");
-      sb.append("          ( #").append(turn.move().to().file().name()).append(" ").append(turn.move().to().rank()).append(" )\n");
+      sb.append("          ( ").append(StvnVocabulary.SIGIL_VALUE).append(turn.move().from().file().name()).append(" ").append(turn.move().from().rank()).append(" )\n");
+      sb.append("          ( ").append(StvnVocabulary.SIGIL_VALUE).append(turn.move().to().file().name()).append(" ").append(turn.move().to().rank()).append(" )\n");
       if (turn.move().promotion().isPresent()) {
-        sb.append("          #Some #").append(turn.move().promotion().get().name()).append("\n");
+        sb.append("          ").append(StvnVocabulary.VAL_SOME).append(" ").append(StvnVocabulary.SIGIL_VALUE).append(turn.move().promotion().get().name()).append("\n");
       } else {
-        sb.append("          #None\n");
+        sb.append("          ").append(StvnVocabulary.VAL_NONE).append("\n");
       }
-      sb.append("          ").append(turn.move().isCapture() ? "#TRUE" : "#FALSE").append("\n");
+      sb.append("          ").append(turn.move().isCapture() ? StvnVocabulary.VAL_TRUE : StvnVocabulary.VAL_FALSE).append("\n");
       sb.append("          ").append(turn.move().halfmovesSincePawnOrCapture()).append("\n");
       sb.append("        )\n");
       sb.append("        \"").append(escape(turn.fen())).append("\"\n");
@@ -73,9 +74,9 @@ public final class ChessAstMapper {
     sb.append("    ]\n");
 
     if (game.result().isPresent()) {
-      sb.append("    #Some #").append(game.result().get().name()).append("\n");
+      sb.append("    ").append(StvnVocabulary.VAL_SOME).append(" ").append(StvnVocabulary.SIGIL_VALUE).append(game.result().get().name()).append("\n");
     } else {
-      sb.append("    #None\n");
+      sb.append("    ").append(StvnVocabulary.VAL_NONE).append("\n");
     }
 
     sb.append("  )\n");
@@ -169,8 +170,8 @@ public final class ChessAstMapper {
 
   private static void assertNominalSchema(StvnValue node, String expectedSuffix, String path) {
     String alias = node.schema().aliasName().orElse(null);
-    if (alias == null || (!alias.equals(":" + expectedSuffix) && !alias.endsWith("/" + expectedSuffix))) {
-      throw new NominalSchemaMismatchException(":" + expectedSuffix, alias, path, node);
+    if (alias == null || (!alias.equals(StvnVocabulary.SIGIL_TYPIC + expectedSuffix) && !alias.endsWith("/" + expectedSuffix))) {
+      throw new NominalSchemaMismatchException(StvnVocabulary.SIGIL_TYPIC + expectedSuffix, alias, path, node);
     }
   }
 
@@ -184,54 +185,54 @@ public final class ChessAstMapper {
 
   private static StvnValue.StvnString assertString(StvnValue node, String path) {
     if (!(node instanceof StvnValue.StvnString s)) {
-      throw new NominalSchemaMismatchException(":String", node.getClass().getSimpleName(), path, node);
+      throw new NominalSchemaMismatchException(StvnVocabulary.TYPE_STRING, node.getClass().getSimpleName(), path, node);
     }
     return s;
   }
 
   private static StvnValue.StvnInteger assertInteger(StvnValue node, String path) {
     if (!(node instanceof StvnValue.StvnInteger i)) {
-      throw new NominalSchemaMismatchException(":Int", node.getClass().getSimpleName(), path, node);
+      throw new NominalSchemaMismatchException(StvnVocabulary.TYPE_INT, node.getClass().getSimpleName(), path, node);
     }
     return i;
   }
 
   private static StvnValue.StvnEnum assertEnum(StvnValue node, String path) {
     if (!(node instanceof StvnValue.StvnEnum e)) {
-      throw new NominalSchemaMismatchException(":Enum", node.getClass().getSimpleName(), path, node);
+      throw new NominalSchemaMismatchException(StvnVocabulary.TYPE_ENUM, node.getClass().getSimpleName(), path, node);
     }
     return e;
   }
 
   private static StvnValue.StvnOption assertOption(StvnValue node, String path) {
     if (!(node instanceof StvnValue.StvnOption o)) {
-      throw new NominalSchemaMismatchException(":Option", node.getClass().getSimpleName(), path, node);
+      throw new NominalSchemaMismatchException(StvnVocabulary.TYPE_OPTION, node.getClass().getSimpleName(), path, node);
     }
     return o;
   }
 
   private static StvnValue.StvnSeq assertSeq(StvnValue node, String path) {
     if (!(node instanceof StvnValue.StvnSeq s)) {
-      throw new NominalSchemaMismatchException(":Seq", node.getClass().getSimpleName(), path, node);
+      throw new NominalSchemaMismatchException(StvnVocabulary.TYPE_SEQ, node.getClass().getSimpleName(), path, node);
     }
     return s;
   }
 
   private static StvnValue.StvnBoolean assertBoolean(StvnValue node, String path) {
     if (!(node instanceof StvnValue.StvnBoolean b)) {
-      throw new NominalSchemaMismatchException(":Boolean", node.getClass().getSimpleName(), path, node);
+      throw new NominalSchemaMismatchException(StvnVocabulary.TYPE_BOOLEAN, node.getClass().getSimpleName(), path, node);
     }
     return b;
   }
 
   private static String extractDefsBlock(String schemaContent) {
-    int defsIdx = schemaContent.indexOf(":defs");
+    int defsIdx = schemaContent.indexOf(StvnVocabulary.KEYWORD_DEFS);
     if (defsIdx == -1) {
-      throw new IllegalArgumentException("Schema does not contain :defs block: " + schemaContent);
+      throw new IllegalArgumentException("Schema does not contain " + StvnVocabulary.KEYWORD_DEFS + " block: " + schemaContent);
     }
     int openBrace = schemaContent.indexOf('{', defsIdx);
     if (openBrace == -1) {
-      throw new IllegalArgumentException("Invalid :defs structure in schema");
+      throw new IllegalArgumentException("Invalid " + StvnVocabulary.KEYWORD_DEFS + " structure in schema");
     }
     int closeBrace = findMatchingBrace(schemaContent, openBrace);
     return "  " + schemaContent.substring(defsIdx, closeBrace + 1);
@@ -303,6 +304,6 @@ public final class ChessAstMapper {
 
   private static String stripHash(String s) {
     if (s == null) return "";
-    return s.startsWith("#") ? s.substring(1) : s;
+    return s.startsWith(StvnVocabulary.SIGIL_VALUE) ? s.substring(1) : s;
   }
 }

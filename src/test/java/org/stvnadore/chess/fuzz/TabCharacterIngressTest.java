@@ -17,7 +17,7 @@ public class TabCharacterIngressTest {
   @Test
   @DisplayName("Strict compilation immediately throws exception on tab character")
   void testStrictIngressRejectsTabCharacter() {
-    String tabbedDocument = "{\n\t:defs {\n\t\t:Move :Int32\n\t}\n\t:type :Move\n\t:body 42\n}\n";
+    String tabbedDocument = "{\n\t:defs {\n\t\t:Move :Int\n\t}\n\t:type :Move\n\t:body 42\n}\n";
 
     var exception = assertThrows(RuntimeException.class, () ->
         StvnCompiler.compile(tabbedDocument)
@@ -37,7 +37,7 @@ public class TabCharacterIngressTest {
   @Test
   @DisplayName("Accumulating compilation reports ERR_TAB_CHARACTER_FORBIDDEN diagnostic")
   void testAccumulatingIngressReportsTabDiagnostic() {
-    String tabbedDocument = "{\n\t:type :Int32\n\t:body 100\n}\n";
+    String tabbedDocument = "{\n\t:type :Int\n\t:body 100\n}\n";
     StvnParserConfig nonStrictConfig = new StvnParserConfig(false, 100);
 
     var result = StvnCompiler.compileToResult(tabbedDocument, "test_tab.stvn", nonStrictConfig);

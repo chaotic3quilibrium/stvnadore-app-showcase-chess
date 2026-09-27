@@ -1,5 +1,7 @@
 package org.stvnadore.chess.client;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -12,6 +14,9 @@ import java.util.Objects;
  * HTTP Client for interacting with the remote or local STVN Schema Registry.
  */
 public class ChessSchemaRegistryClient {
+
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   private final String baseUrl;
   private final HttpClient httpClient;
@@ -77,11 +82,11 @@ public class ChessSchemaRegistryClient {
    *
    * @param schemaName the schema registration name
    * @param sourceText raw schema content
-   * @return HTTP status code and response body
+   * @return parsed PublishResultDto response
    * @throws IOException if network transport fails
    * @throws InterruptedException if thread execution is interrupted
    */
-  public HttpResponse<String> publishSchema(String schemaName, String sourceText) throws IOException, InterruptedException {
+  public PublishResultDto publishSchema(String schemaName, String sourceText) throws IOException, InterruptedException {
     Objects.requireNonNull(schemaName, "schemaName must not be null");
     Objects.requireNonNull(sourceText, "sourceText must not be null");
 
@@ -93,6 +98,43 @@ public class ChessSchemaRegistryClient {
         .POST(HttpRequest.BodyPublishers.ofString(sourceText))
         .build();
 
-    return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    if (response.statusCode() != 200 && response.statusCode() != 201) {
+      throw new IllegalStateException("Failed to publish schema '" + schemaName +
+          "'. HTTP status: " + response.statusCode() + ", body: " + response.body());
+    }
+
+    return OBJECT_MAPPER.readValue(response.body(), PublishResultDto.class);
+  }
+
+  /**
+   * Publishes an STVN binary schema envelope utilizing Strategy 0x08 (SelfDescribingSchema)
+   * with CRC-32C trailer validation to the repository.
+   *
+   * @param schemaName the schema registration name
+   * @param binaryPayload raw binary payload bytes
+   * @return parsed PublishResultDto response
+   * @throws IOException if network transport fails
+   * @throws InterruptedException if thread execution is interrupted
+   */
+  public PublishResultDto publishBinarySchema(String schemaName, byte[] binaryPayload) throws IOException, InterruptedException {
+    Objects.requireNonNull(schemaName, "schemaName must not be null");
+    Objects.requireNonNull(binaryPayload, "binaryPayload must not be null");
+
+    URI uri = URI.create(baseUrl + "/api/v1/schemas/" + schemaName);
+    HttpRequest request = HttpRequest.newBuilder()
+        .uri(uri)
+        .timeout(timeout)
+        .header("Content-Type", "application/stvn-bin")
+        .POST(HttpRequest.BodyPublishers.ofByteArray(binaryPayload))
+        .build();
+
+    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    if (response.statusCode() != 200 && response.statusCode() != 201) {
+      throw new IllegalStateException("Failed to publish binary schema '" + schemaName +
+          "'. HTTP status: " + response.statusCode() + ", body: " + response.body());
+    }
+
+    return OBJECT_MAPPER.readValue(response.body(), PublishResultDto.class);
   }
 }

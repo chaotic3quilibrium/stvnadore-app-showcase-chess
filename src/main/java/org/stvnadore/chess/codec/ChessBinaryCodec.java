@@ -2,6 +2,7 @@ package org.stvnadore.chess.codec;
 
 import org.stvnadore.chess.domain.GameHistory;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.binary.SchemaIdentityStrategy;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
@@ -102,6 +103,21 @@ public class ChessBinaryCodec {
   }
 
   /**
+   * Encodes the canonical schema definition into an STVN binary byte buffer using Strategy 0x08
+   * (SelfDescribingSchema) with mandatory CRC-32C trailer framing for repository publication.
+   *
+   * @return read-only little-endian ByteBuffer containing binary schema envelope
+   */
+  public ByteBuffer encodeSchemaSelfDescribing() {
+    String wrapperDoc = wrapSchemaWithDummyType(schemaSourceText);
+    StvnValue sampleValue = StvnCompiler.compile(wrapperDoc)
+        .orElseThrow(() -> new IllegalStateException("Failed to compile schema definition"));
+    var strategy = new SchemaIdentityStrategy.SelfDescribingSchema(wrapperDoc);
+    var encoder = new StvnBinaryEncoder(true, strategy, true);
+    return encoder.encode(sampleValue);
+  }
+
+  /**
    * Decodes an STVN binary byte buffer back into a GameHistory domain record.
    * Enforces zero-trust schema validation via StvnBinaryDecoder.
    *
@@ -155,7 +171,7 @@ public class ChessBinaryCodec {
   }
 
   private static String wrapSchemaWithDummyType(String schemaContent) {
-    int defsIdx = schemaContent.indexOf(":defs");
+    int defsIdx = schemaContent.indexOf(StvnVocabulary.KEYWORD_DEFS);
     int openBrace = schemaContent.indexOf('{', defsIdx);
     int closeBrace = -1;
     int depth = 0;
@@ -171,10 +187,10 @@ public class ChessBinaryCodec {
       }
     }
     String defsBlock = schemaContent.substring(defsIdx, closeBrace + 1);
-    if (defsBlock.contains(":package :org/stvnadore/chess")) {
+    if (defsBlock.contains(StvnVocabulary.KEYWORD_PACKAGE + " :org/stvnadore/chess")) {
       int lastBrace = defsBlock.lastIndexOf('}');
-      defsBlock = defsBlock.substring(0, lastBrace) + "  :use [ :org/stvnadore/chess { #strip } ]\n  }";
+      defsBlock = defsBlock.substring(0, lastBrace) + "  " + StvnVocabulary.KEYWORD_USE + " [ :org/stvnadore/chess { " + StvnVocabulary.FACET_KW_STRIP + " } ]\n  }";
     }
-    return "{\n  " + defsBlock + "\n  :type :GameHistory\n  :body ( \"test\" \"white\" \"black\" [] #None )\n}";
+    return "{\n  " + defsBlock + "\n  " + StvnVocabulary.KEYWORD_TYPE + " :GameHistory\n  " + StvnVocabulary.KEYWORD_BODY + " ( \"test\" \"white\" \"black\" [] " + StvnVocabulary.VAL_NONE + " )\n}";
   }
 }

@@ -17,24 +17,6 @@ import java.util.Optional;
  */
 public final class MoveValidator {
 
-  private static final int[][] KNIGHT_OFFSETS = {
-      {1, 2}, {2, 1}, {2, -1}, {1, -2},
-      {-1, -2}, {-2, -1}, {-2, 1}, {-1, 2}
-  };
-
-  private static final int[][] BISHOP_DIRECTIONS = {
-      {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
-  };
-
-  private static final int[][] ROOK_DIRECTIONS = {
-      {1, 0}, {-1, 0}, {0, 1}, {0, -1}
-  };
-
-  private static final int[][] KING_OFFSETS = {
-      {1, 0}, {-1, 0}, {0, 1}, {0, -1},
-      {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
-  };
-
   private MoveValidator() {
     // Utility class
   }
@@ -121,7 +103,7 @@ public final class MoveValidator {
     }
 
     // 2. Knight Attacks
-    for (int[] offset : KNIGHT_OFFSETS) {
+    for (int[] offset : MoveGenerator.KNIGHT_OFFSETS) {
       int tf = fileIdx + offset[0];
       int tr = rankIdx + offset[1];
       if (tf >= 0 && tf <= 7 && tr >= 0 && tr <= 7) {
@@ -133,17 +115,17 @@ public final class MoveValidator {
     }
 
     // 3. Bishop & Queen Diagonal Rays
-    if (checkRayAttacks(board, fileIdx, rankIdx, BISHOP_DIRECTIONS, attackerColor, Piece.PieceRole.BISHOP)) {
+    if (checkRayAttacks(board, fileIdx, rankIdx, MoveGenerator.BISHOP_DIRECTIONS, attackerColor, Piece.PieceRole.BISHOP)) {
       return true;
     }
 
     // 4. Rook & Queen Orthogonal Rays
-    if (checkRayAttacks(board, fileIdx, rankIdx, ROOK_DIRECTIONS, attackerColor, Piece.PieceRole.ROOK)) {
+    if (checkRayAttacks(board, fileIdx, rankIdx, MoveGenerator.ROOK_DIRECTIONS, attackerColor, Piece.PieceRole.ROOK)) {
       return true;
     }
 
     // 5. King Proximity Attacks
-    for (int[] offset : KING_OFFSETS) {
+    for (int[] offset : MoveGenerator.KING_OFFSETS) {
       int tf = fileIdx + offset[0];
       int tr = rankIdx + offset[1];
       if (tf >= 0 && tf <= 7 && tr >= 0 && tr <= 7) {

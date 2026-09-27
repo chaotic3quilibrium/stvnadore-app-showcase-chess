@@ -16,20 +16,20 @@ import java.util.Optional;
  */
 public final class MoveGenerator {
 
-  private static final int[][] KNIGHT_OFFSETS = {
+  static final int[][] KNIGHT_OFFSETS = {
       {1, 2}, {2, 1}, {2, -1}, {1, -2},
       {-1, -2}, {-2, -1}, {-2, 1}, {-1, 2}
   };
 
-  private static final int[][] BISHOP_DIRECTIONS = {
+  static final int[][] BISHOP_DIRECTIONS = {
       {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
   };
 
-  private static final int[][] ROOK_DIRECTIONS = {
+  static final int[][] ROOK_DIRECTIONS = {
       {1, 0}, {-1, 0}, {0, 1}, {0, -1}
   };
 
-  private static final int[][] KING_OFFSETS = {
+  static final int[][] KING_OFFSETS = {
       {1, 0}, {-1, 0}, {0, 1}, {0, -1},
       {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
   };

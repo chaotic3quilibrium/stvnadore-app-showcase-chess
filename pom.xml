@@ -164,6 +164,7 @@
                         <arg>-Werror</arg>
                         <arg>-Xlint:all</arg>
                         <arg>-Xlint:-processing</arg>
+                        <arg>-Xlint:-serial</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>

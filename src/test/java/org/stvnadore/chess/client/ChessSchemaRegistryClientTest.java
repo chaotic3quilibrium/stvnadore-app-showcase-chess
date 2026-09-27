@@ -18,7 +18,7 @@ public class ChessSchemaRegistryClientTest {
   private static Javalin app;
   private static String baseUrl;
   private static final String CAS_HASH = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
-  private static final String SCHEMA_BODY = "{\n  :defs {\n    :Test :Int32\n  }\n}";
+  private static final String SCHEMA_BODY = "{\n  :defs {\n    :Test { #size 32 } :Int\n  }\n}";
 
   @BeforeAll
   static void setUp() {
@@ -31,7 +31,11 @@ public class ChessSchemaRegistryClientTest {
         ctx.status(415).json(Map.of("error", "Unsupported Media Type"));
         return;
       }
-      ctx.status(201).json(Map.of("schemaName", ctx.pathParam("name"), "casHash", CAS_HASH));
+      ctx.status(201).json(Map.of(
+          "schemaName", ctx.pathParam("name"),
+          "shapeSignature", "test-signature",
+          "casHash", CAS_HASH
+      ));
     });
 
     app.get("/api/v1/schemas/cas/{hash}", ctx -> {
@@ -55,8 +59,9 @@ public class ChessSchemaRegistryClientTest {
   void testPublishAndFetch() throws Exception {
     ChessSchemaRegistryClient client = new ChessSchemaRegistryClient(baseUrl);
 
-    HttpResponse<String> publishResp = client.publishSchema("test-schema", SCHEMA_BODY);
-    assertEquals(201, publishResp.statusCode());
+    PublishResultDto publishResult = client.publishSchema("test-schema", SCHEMA_BODY);
+    assertEquals("test-schema", publishResult.schemaName());
+    assertEquals(CAS_HASH, publishResult.casHash());
 
     String fetched = client.fetchSchemaByCasHash(CAS_HASH);
     assertEquals(SCHEMA_BODY, fetched);

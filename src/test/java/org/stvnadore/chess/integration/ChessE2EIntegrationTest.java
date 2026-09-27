@@ -14,8 +14,8 @@ import org.stvnadore.chess.domain.Square;
 import org.stvnadore.chess.domain.TurnState;
 import org.stvnadore.core.binary.exceptions.PoisonedRegistryPayloadException;
 
+import org.stvnadore.chess.client.PublishResultDto;
 import java.io.InputStream;
-import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -46,20 +46,43 @@ public class ChessE2EIntegrationTest {
 
     app.post("/api/v1/schemas/{name}", ctx -> {
       String contentType = ctx.contentType();
-      if (contentType == null || !contentType.toLowerCase().startsWith("application/stvn")) {
+      if (contentType == null) {
+        ctx.status(415).json(Map.of("error", "Unsupported Media Type"));
+        return;
+      }
+      String lower = contentType.toLowerCase();
+      boolean isText = lower.startsWith("application/stvn");
+      boolean isBin = lower.startsWith("application/stvn-bin") || lower.startsWith("application/octet-stream");
+      if (!isText && !isBin) {
         ctx.status(415).json(Map.of("error", "Unsupported Media Type"));
         return;
       }
       String schemaName = ctx.pathParam("name");
-      String body = ctx.body();
+      String hashHex;
+      String bodyText;
 
-      ChessBinaryCodec codec = new ChessBinaryCodec(body);
-      String hashHex = codec.getCasHashHex();
+      if (isBin) {
+        byte[] bytes = ctx.bodyAsBytes();
+        var rootPtr = org.stvnadore.core.binary.StvnBinaryDecoder.open(ByteBuffer.wrap(bytes));
+        org.stvnadore.core.ir.StvnValue val = org.stvnadore.core.binary.StvnBinaryDecoder.unpack(rootPtr, rootPtr.schema());
+        assertNotNull(val);
+        ChessBinaryCodec codec = new ChessBinaryCodec(schemaContent);
+        hashHex = codec.getCasHashHex();
+        bodyText = schemaContent;
+      } else {
+        bodyText = ctx.body();
+        ChessBinaryCodec codec = new ChessBinaryCodec(bodyText);
+        hashHex = codec.getCasHashHex();
+      }
 
-      inMemoryCasStorage.put(hashHex, body);
+      inMemoryCasStorage.put(hashHex, bodyText);
       inMemoryRegistry.put(schemaName, hashHex);
 
-      ctx.status(201).json(Map.of("schemaName", schemaName, "casHash", hashHex));
+      ctx.status(201).json(Map.of(
+          "schemaName", schemaName,
+          "shapeSignature", "sha256:" + hashHex.substring(0, 16),
+          "casHash", hashHex
+      ));
     });
 
     app.get("/api/v1/schemas/cas/{hash}", ctx -> {
@@ -86,8 +109,10 @@ public class ChessE2EIntegrationTest {
     ChessSchemaRegistryClient client = new ChessSchemaRegistryClient(baseUrl);
 
     // 1. Publish Schema to Registry
-    HttpResponse<String> publishResp = client.publishSchema("chess-turn-schema", schemaContent);
-    assertEquals(201, publishResp.statusCode());
+    PublishResultDto publishResult = client.publishSchema("chess-turn-schema", schemaContent);
+    assertNotNull(publishResult);
+    assertEquals("chess-turn-schema", publishResult.schemaName());
+    assertNotNull(publishResult.casHash());
 
     // 2. Fetch Schema by CAS Hash
     ChessBinaryCodec localCodec = new ChessBinaryCodec(schemaContent);
@@ -116,5 +141,20 @@ public class ChessE2EIntegrationTest {
     byte[] poisonedBytes = ChessBinaryCodec.poisonPayload(validBytes);
 
     assertThrows(PoisonedRegistryPayloadException.class, () -> remoteCodec.decode(ByteBuffer.wrap(poisonedBytes)));
+  }
+
+  @Test
+  @DisplayName("Binary schema publication: Encode schema via Strategy 0x08, publish binary payload, verify PublishResultDto")
+  void testBinarySchemaPublication() throws Exception {
+    ChessSchemaRegistryClient client = new ChessSchemaRegistryClient(baseUrl);
+    ChessBinaryCodec localCodec = new ChessBinaryCodec(schemaContent);
+    ByteBuffer binBuf = localCodec.encodeSchemaSelfDescribing();
+    byte[] binBytes = new byte[binBuf.remaining()];
+    binBuf.get(binBytes);
+
+    PublishResultDto result = client.publishBinarySchema("chess-turn-bin-schema", binBytes);
+    assertNotNull(result);
+    assertEquals("chess-turn-bin-schema", result.schemaName());
+    assertNotNull(result.casHash());
   }
 }

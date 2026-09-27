@@ -6,6 +6,8 @@
       :File             :Enum [ #A #B #C #D #E #F #G #H ]
       :Rank             { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int
       :Square           :Tuple( :File :Rank )
+      :AlgebraicSquare  { #regex "^[a-h][1-8]$" } :String
+      :SquareIndex      { #unsigned #size 6 #minIncl 0 #maxExcl 64 } :Int
 
       :Color            :Enum [ #WHITE #BLACK ]
       :PieceRole        :Enum [ #PAWN #KNIGHT #BISHOP #ROOK #QUEEN #KING ]
