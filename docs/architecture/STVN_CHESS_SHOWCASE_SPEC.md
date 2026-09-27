@@ -177,11 +177,13 @@ flowchart TD
     end
 ```
 
-### 4.1 Byte 4 Control Byte Framing
+### 4.1 Byte 4 Control Byte Framing & Application Profile
 
-Strategy `0x7` wire frames specify Byte 4 as follows:
+While the core STVN 2.0.0 binary specification supports both trailerless (`Bit 7 = 0`) and trailer-framed (`Bit 7 = 1`) streams, the chess showcase application adopts a zero-trust profile by default, emitting Byte 4 as `0x87` (Strategy `0x7` with mandatory Castagnoli CRC-32C) to demonstrate end-to-end transport integrity verification.
+
+Strategy `0x7` wire frames specify Byte 4 and the leading header slice as follows:
 - **Bits 0–3 (`0x7`):** Strategy Identifier (`ExplicitSha256`).
-- **Bit 7 (`0x80`):** CRC-32C Trailer Sentinel. When active, Byte 4 evaluates to `0x87`.
+- **Bit 7 (`0x80`):** CRC-32C Trailer Sentinel (`1 = Present`). When combined with Strategy `0x7`, Byte 4 evaluates to `0x87`.
 - **Bytes 5–36:** The 32-byte binary SHA-256 digest of the canonical `chess_turn.stvn_inclf` schema.
 
 ### 4.2 Zero-Trust Verification Pipeline
