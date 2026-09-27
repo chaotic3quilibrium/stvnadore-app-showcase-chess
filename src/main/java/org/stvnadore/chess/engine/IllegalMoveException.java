@@ -19,13 +19,4 @@ public class IllegalMoveException extends RuntimeException {
     super(message);
   }
 
-  /**
-   * Constructs an IllegalMoveException with a detail message and cause.
-   *
-   * @param message the detail message
-   * @param cause the underlying cause
-   */
-  public IllegalMoveException(String message, Throwable cause) {
-    super(message, cause);
-  }
 }

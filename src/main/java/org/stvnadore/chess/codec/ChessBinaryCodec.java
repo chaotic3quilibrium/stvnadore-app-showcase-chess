@@ -66,15 +66,6 @@ public class ChessBinaryCodec {
   }
 
   /**
-   * Returns the compiled ResolvedSchema definition for this codec.
-   *
-   * @return resolved schema instance
-   */
-  public ResolvedSchema getResolvedSchema() {
-    return resolvedSchema;
-  }
-
-  /**
    * Encodes a GameHistory domain record into an STVN binary byte buffer using Strategy 0x07
    * and appends a 4-byte CRC-32C trailer framing.
    *
@@ -82,23 +73,11 @@ public class ChessBinaryCodec {
    * @return read-only little-endian ByteBuffer containing binary payload
    */
   public ByteBuffer encode(GameHistory game) {
-    return encode(game, true);
-  }
-
-  /**
-   * Encodes a GameHistory domain record into an STVN binary byte buffer using Strategy 0x07
-   * with optional CRC-32C trailer framing.
-   *
-   * @param game             the game history to encode
-   * @param hasTrailerCrc32c if true, appends 4-byte CRC-32C trailer and sets Bit 7 of Byte 4
-   * @return read-only little-endian ByteBuffer containing binary payload
-   */
-  public ByteBuffer encode(GameHistory game, boolean hasTrailerCrc32c) {
     Objects.requireNonNull(game, "game must not be null");
 
     StvnValue ast = ChessAstMapper.toStvnAst(game, schemaSourceText);
     var strategy = new SchemaIdentityStrategy.ExplicitSha256(expectedSha256Digest);
-    var encoder = new StvnBinaryEncoder(true, strategy, hasTrailerCrc32c);
+    var encoder = new StvnBinaryEncoder(true, strategy, true);
     return encoder.encode(ast);
   }
 

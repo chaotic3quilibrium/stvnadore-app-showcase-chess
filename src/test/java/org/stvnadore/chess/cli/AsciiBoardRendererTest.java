@@ -51,7 +51,7 @@ public class AsciiBoardRendererTest {
     String fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
     TurnState turn = new TurnState(1, Piece.PieceColor.WHITE, move, fen, 35);
 
-    String rendered = AsciiBoardRenderer.renderTurn(turn, null, AsciiBoardRenderer.RenderOptions.defaultUnicode());
+    String rendered = AsciiBoardRenderer.renderTurn(turn, AsciiBoardRenderer.RenderOptions.defaultUnicode());
 
     assertTrue(rendered.contains("Turn: 1 (BLACK)"));
     assertTrue(rendered.contains("Last Move: e2 -> e4"));

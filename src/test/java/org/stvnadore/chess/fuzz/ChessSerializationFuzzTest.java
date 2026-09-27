@@ -14,7 +14,6 @@ import org.stvnadore.chess.domain.Square;
 import org.stvnadore.chess.domain.TurnState;
 import org.stvnadore.chess.engine.FenCodec;
 import org.stvnadore.chess.engine.MoveValidator;
-import org.stvnadore.chess.engine.TerminalDetector;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.validation.MalformedPayloadException;
 

@@ -249,15 +249,13 @@ public class ChessCliApplication {
         ? AsciiBoardRenderer.RenderOptions.plainAscii()
         : AsciiBoardRenderer.RenderOptions.defaultUnicode();
 
-    TurnState prevTurn = null;
     Scanner scanner = stepMode ? new Scanner(System.in) : null;
 
     for (int i = 0; i < game.turns().size(); i++) {
       TurnState turn = game.turns().get(i);
-      String frame = AsciiBoardRenderer.renderTurn(turn, prevTurn, options);
+      String frame = AsciiBoardRenderer.renderTurn(turn, options);
       System.out.print(frame);
 
-      prevTurn = turn;
       if (stepMode && scanner != null) {
         System.out.print("[Ply " + (i + 1) + "/" + game.turns().size() + " - Enter: Next, q: Quit] > ");
         if (scanner.hasNextLine()) {
@@ -317,15 +315,13 @@ public class ChessCliApplication {
         "Wire Format", "Raw Bytes", "Bytes / Ply", "GZIP Bytes", "STVN Delta");
     System.out.println("-----------------------------------------------------------------------------------------");
 
-    int stvnRaw = res.rawSizesBytes().get("STVN Binary (Strategy 0x07)");
-
     for (String format : res.rawSizesBytes().keySet()) {
       int raw = res.rawSizesBytes().get(format);
       double bpt = res.bytesPerTurn().get(format);
       int gzipped = res.compressedSizesBytes().get(format);
       String deltaStr = format.equals("STVN Binary (Strategy 0x07)")
           ? "BASELINE"
-          : String.format("%+.1f%%", ((double) (raw - stvnRaw) / raw) * 100.0);
+          : String.format("%+.1f%%", res.getStvnSavingsPercent(format));
 
       System.out.printf("%-30s | %10d | %12.2f | %12d | %10s\n",
           format, raw, bpt, gzipped, deltaStr);

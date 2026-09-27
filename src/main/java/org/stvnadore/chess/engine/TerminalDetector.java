@@ -62,7 +62,6 @@ public final class TerminalDetector {
    * - K vs K
    * - K+B vs K
    * - K+N vs K
-   * - K+B vs K+B with bishops on same color squares
    *
    * @param board current board state position
    * @return true if neither side has sufficient mating material

@@ -77,7 +77,7 @@ public final class AsciiBoardRenderer {
    * @return formatted board representation string
    */
   public static String render(BoardState board) {
-    return render(board, null, null, RenderOptions.defaultUnicode());
+    return render(board, null, RenderOptions.defaultUnicode());
   }
 
   /**
@@ -88,21 +88,20 @@ public final class AsciiBoardRenderer {
    * @return formatted board representation string
    */
   public static String render(BoardState board, RenderOptions options) {
-    return render(board, null, null, options);
+    return render(board, null, options);
   }
 
   /**
    * Renders a TurnState snapshot with turn transition metadata.
    *
    * @param turn current turn state snapshot
-   * @param prevTurn previous turn state snapshot, if any
    * @param options rendering configuration options
    * @return formatted turn representation string
    */
-  public static String renderTurn(TurnState turn, @Nullable TurnState prevTurn, RenderOptions options) {
+  public static String renderTurn(TurnState turn, RenderOptions options) {
     Objects.requireNonNull(turn, "turn must not be null");
     BoardState board = FenCodec.parse(turn.fen());
-    return render(board, turn, prevTurn, options);
+    return render(board, turn, options);
   }
 
   /**
@@ -110,11 +109,10 @@ public final class AsciiBoardRenderer {
    *
    * @param board current board state position
    * @param turn current turn state snapshot, if any
-   * @param prevTurn previous turn state snapshot, if any
    * @param options rendering configuration options
    * @return formatted complete board frame string
    */
-  public static String render(BoardState board, @Nullable TurnState turn, @Nullable TurnState prevTurn, RenderOptions options) {
+  public static String render(BoardState board, @Nullable TurnState turn, RenderOptions options) {
     Objects.requireNonNull(board, "board must not be null");
     Objects.requireNonNull(options, "options must not be null");
 

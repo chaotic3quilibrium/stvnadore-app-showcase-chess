@@ -48,39 +48,6 @@ public record BoardState(
     squares = squares.clone();
   }
 
-  /**
-   * Overloaded constructor supporting legacy individual castling privilege booleans.
-   *
-   * @param squares 64-element array of pieces
-   * @param activeColor active player color
-   * @param whiteKingsideCastling white kingside right
-   * @param whiteQueensideCastling white queenside right
-   * @param blackKingsideCastling black kingside right
-   * @param blackQueensideCastling black queenside right
-   * @param enPassantTarget optional en-passant square
-   * @param halfmoveClock halfmove count
-   * @param fullmoveNumber fullmove count
-   */
-  public BoardState(
-      @Nullable Piece[] squares,
-      Piece.PieceColor activeColor,
-      boolean whiteKingsideCastling,
-      boolean whiteQueensideCastling,
-      boolean blackKingsideCastling,
-      boolean blackQueensideCastling,
-      Optional<Square> enPassantTarget,
-      int halfmoveClock,
-      int fullmoveNumber
-  ) {
-    this(
-        squares,
-        activeColor,
-        new CastlingRights(whiteKingsideCastling, whiteQueensideCastling, blackKingsideCastling, blackQueensideCastling),
-        enPassantTarget,
-        halfmoveClock,
-        fullmoveNumber
-    );
-  }
 
   /**
    * Retrieves the piece at a given square.

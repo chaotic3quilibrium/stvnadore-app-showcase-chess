@@ -13,7 +13,6 @@ import org.stvnadore.core.ir.StvnValue;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 

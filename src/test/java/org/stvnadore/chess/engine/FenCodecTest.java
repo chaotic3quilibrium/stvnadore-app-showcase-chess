@@ -6,8 +6,6 @@ import org.stvnadore.chess.domain.BoardState;
 import org.stvnadore.chess.domain.Piece;
 import org.stvnadore.chess.domain.Square;
 
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class FenCodecTest {

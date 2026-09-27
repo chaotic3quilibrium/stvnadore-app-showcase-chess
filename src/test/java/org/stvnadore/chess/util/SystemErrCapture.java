@@ -1,19 +1,14 @@
 package org.stvnadore.chess.util;
 
-import org.junit.jupiter.api.extension.AfterEachCallback;
-import org.junit.jupiter.api.extension.BeforeEachCallback;
-import org.junit.jupiter.api.extension.ExtensionContext;
-
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
-import java.util.concurrent.Callable;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Scoped, thread-safe utility and JUnit 5 extension for intercepting and muting {@code System.err}
+ * Scoped, thread-safe utility for intercepting and muting {@code System.err}
  * during negative test execution.
  *
  * <p>Usage as try-with-resources:
@@ -25,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * }
  * }</pre>
  */
-public final class SystemErrCapture implements AutoCloseable, BeforeEachCallback, AfterEachCallback {
+public final class SystemErrCapture implements AutoCloseable {
 
   private final PrintStream originalErr;
   private final ByteArrayOutputStream buffer;
@@ -53,21 +48,6 @@ public final class SystemErrCapture implements AutoCloseable, BeforeEachCallback
     return capture;
   }
 
-  /**
-   * Executes a callable block while muting {@code System.err}, returning the callable result.
-   *
-   * @param action executable block
-   * @param <T> return type
-   * @return result of the action
-   * @throws Exception if the action throws
-   */
-  public static <T> T callWithMutedErr(Callable<T> action) throws Exception {
-    try (SystemErrCapture capture = mute()) {
-      T result = action.call();
-      capture.flush();
-      return result;
-    }
-  }
 
   /**
    * Flushes the underlying capture print stream buffer.
@@ -110,16 +90,5 @@ public final class SystemErrCapture implements AutoCloseable, BeforeEachCallback
         closed = true;
       }
     }
-  }
-
-  @Override
-  public void beforeEach(ExtensionContext context) {
-    System.setErr(capturingPrintStream);
-    closed = false;
-  }
-
-  @Override
-  public void afterEach(ExtensionContext context) {
-    close();
   }
 }

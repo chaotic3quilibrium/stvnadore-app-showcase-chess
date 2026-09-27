@@ -7,7 +7,6 @@ import org.stvnadore.chess.codec.ChessBinaryCodec;
 import org.stvnadore.chess.domain.BoardState;
 import org.stvnadore.chess.domain.GameHistory;
 import org.stvnadore.chess.domain.Move;
-import org.stvnadore.chess.domain.Piece;
 import org.stvnadore.chess.domain.Square;
 import org.stvnadore.chess.domain.TurnState;
 import org.stvnadore.chess.engine.FenCodec;
