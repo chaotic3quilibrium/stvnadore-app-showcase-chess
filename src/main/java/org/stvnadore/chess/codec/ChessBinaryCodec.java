@@ -32,14 +32,14 @@ public class ChessBinaryCodec {
   /**
    * Constructs a codec by compiling and hashing the canonical schema source text.
    *
-   * @param schemaSourceText raw .stvn_inclf schema content
+   * @param schemaSourceText raw .stvn_d schema content
    */
   public ChessBinaryCodec(String schemaSourceText) {
     this.schemaSourceText = Objects.requireNonNull(schemaSourceText, "schemaSourceText must not be null");
     
     // Compile dummy document with schema to extract ResolvedSchema
     String wrapperDoc = wrapSchemaWithDummyType(schemaSourceText);
-    StvnValue sampleValue = StvnCompiler.compile(wrapperDoc)
+    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc)
         .orElseThrow(() -> new IllegalStateException("Failed to compile schema definition"));
     
     this.resolvedSchema = sampleValue.schema();
@@ -89,7 +89,7 @@ public class ChessBinaryCodec {
    */
   public ByteBuffer encodeSchemaSelfDescribing() {
     String wrapperDoc = wrapSchemaWithDummyType(schemaSourceText);
-    StvnValue sampleValue = StvnCompiler.compile(wrapperDoc)
+    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc)
         .orElseThrow(() -> new IllegalStateException("Failed to compile schema definition"));
     var strategy = new SchemaIdentityStrategy.SelfDescribingSchema(wrapperDoc);
     var encoder = new StvnBinaryEncoder(true, strategy, true);
@@ -133,12 +133,26 @@ public class ChessBinaryCodec {
    */
   public static byte[] poisonPayload(byte[] validPayload) {
     Objects.requireNonNull(validPayload, "validPayload must not be null");
-    if (validPayload.length < 37) {
+    if (validPayload.length < 38) {
+      throw new IllegalArgumentException("Payload too short for Strategy 0x07 header: " + validPayload.length);
+    }
+    // Byte 0..3: Magic, Byte 4: Control, Byte 5: MetaControlByte
+    byte metaControl = validPayload[5];
+    int digestOffset = 6;
+    if ((metaControl & 0x04) != 0) { // HAS_NAME
+      int nameLen = Byte.toUnsignedInt(validPayload[digestOffset]);
+      digestOffset += 1 + nameLen;
+    }
+    if ((metaControl & 0x08) != 0) { // HAS_DOMAIN
+      int domainLen = Byte.toUnsignedInt(validPayload[digestOffset]);
+      digestOffset += 1 + domainLen;
+    }
+    if (validPayload.length < digestOffset + 32) {
       throw new IllegalArgumentException("Payload too short for Strategy 0x07 header: " + validPayload.length);
     }
     byte[] corrupted = validPayload.clone();
-    // Offset 5 is the first byte of the 32-byte SHA-256 digest in Control Byte 0x07
-    corrupted[5] = (byte) (corrupted[5] ^ 0xFF);
+    // Corrupt the first byte of the 32-byte SHA-256 digest
+    corrupted[digestOffset] = (byte) (corrupted[digestOffset] ^ 0xFF);
     // If CRC-32C trailer is enabled (Byte 4 Bit 7 == 1), recompute trailer so transport passes
     if ((corrupted[4] & (byte) 0x80) != 0 && corrupted.length >= 41) {
       CRC32C crc = new CRC32C();

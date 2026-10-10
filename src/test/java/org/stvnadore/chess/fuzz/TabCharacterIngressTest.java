@@ -19,7 +19,7 @@ public class TabCharacterIngressTest {
     String tabbedDocument = "{\n\t:defs {\n\t\t:Move :Int\n\t}\n\t:type :Move\n\t:body 42\n}\n";
 
     var exception = assertThrows(RuntimeException.class, () ->
-        StvnCompiler.compile(tabbedDocument)
+        StvnCompiler.compilePayload(tabbedDocument)
     );
 
     assertTrue(exception.getMessage().contains("ERR_TAB_CHARACTER_FORBIDDEN"),

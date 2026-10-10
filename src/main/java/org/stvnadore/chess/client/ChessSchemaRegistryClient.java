@@ -78,7 +78,7 @@ public class ChessSchemaRegistryClient {
   }
 
   /**
-   * Publishes a raw `.stvn_inclf` schema definition to the repository.
+   * Publishes a raw `.stvn_d` schema definition to the repository.
    *
    * @param schemaName the schema registration name
    * @param sourceText raw schema content

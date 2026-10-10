@@ -68,7 +68,7 @@ public class SchemaResourceValidationTest {
 
   private static boolean isStvnSchemaFile(Path path) {
     String filename = path.getFileName().toString();
-    return filename.endsWith(".stvn") || filename.endsWith(".stvn_incl") || filename.endsWith(".stvn_inclf");
+    return filename.endsWith(".stvn_d") || filename.endsWith(".stvn_di");
   }
 
   @Test
@@ -105,7 +105,7 @@ public class SchemaResourceValidationTest {
     assertNotNull(docCtx, "Parse tree context must not be null for " + filename);
 
     // 3. Strict Monadic Compilation & Diagnostic Collection
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(
+    var result = StvnCompiler.compileToResult(
         content,
         schemaPath.toAbsolutePath().toString(),
         StvnParserConfig.STRICT
@@ -127,30 +127,30 @@ public class SchemaResourceValidationTest {
     assertFalse(definitions.isEmpty(),
         "Schema " + filename + " must define at least one nominal type or constant");
 
-    // 5. Leaf Module Constraint: .stvn_inclf files must NOT contain :include statements
-    if (filename.endsWith(".stvn_inclf")) {
+    // 5. Hermetic Schema Constraint: .stvn_d files must NOT contain :include statements
+    if (filename.endsWith(".stvn_d")) {
       assertNotNull(docCtx.documentBody(), "Document body must exist for " + filename);
       assertNotNull(docCtx.documentBody().defsEntry(), "Defs entry must exist for " + filename);
       var elements = docCtx.documentBody().defsEntry().defsElement();
       boolean hasInclude = elements != null && elements.stream()
           .anyMatch(elem -> elem.includeStmt() != null);
       assertFalse(hasInclude,
-          "Leaf module (.stvn_inclf) " + filename + " must not contain :include statements");
+          "Hermetic schema (.stvn_d) " + filename + " must not contain :include statements");
     }
   }
 
   @Test
-  @DisplayName("chess_turn.stvn_inclf can be cleanly imported via :include in a consumer STVN document")
+  @DisplayName("chess_turn.stvn_d can be cleanly imported via :include in a consumer STVN document")
   void testChessTurnSchemaIncludeResolution() throws Exception {
-    var resource = getClass().getResource("/schemas/chess_turn.stvn_inclf");
+    var resource = getClass().getResource("/schemas/chess_turn.stvn_d");
     assertNotNull(resource, "Schema resource must exist");
     Path schemaFilePath = Paths.get(resource.toURI()).toAbsolutePath();
 
-    // Construct a consumer STVN document that imports chess_turn.stvn_inclf
+    // Construct a consumer STVN document that imports chess_turn.stvn_d
     String consumerDocument = """
         {
           :defs {
-            :include [ "chess_turn.stvn_inclf" ]
+            :include [ "chess_turn.stvn_d" ]
             :use [ :org/stvnadore/chess { #strip } ]
           }
           :type :GameHistory
@@ -160,16 +160,16 @@ public class SchemaResourceValidationTest {
 
     // Compile referencing the directory containing the schema for relative include resolution
     Path parentDir = schemaFilePath.getParent();
-    Path virtualDocPath = parentDir.resolve("consumer_test.stvn");
+    Path virtualDocPath = parentDir.resolve("consumer_test.stvn_i");
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(
+    var result = StvnCompiler.compileToResult(
         consumerDocument,
         virtualDocPath.toString(),
         StvnParserConfig.STRICT
     );
 
     assertFalse(result.hasErrors(), () -> {
-      StringBuilder sb = new StringBuilder("Failed to resolve :include of chess_turn.stvn_inclf:\n");
+      StringBuilder sb = new StringBuilder("Failed to resolve :include of chess_turn.stvn_d:\n");
       for (StvnDiagnostic d : result.diagnostics()) {
         sb.append(String.format("  - Line %d, Col %d: %s\n", d.line(), d.column(), d.message()));
       }
@@ -180,9 +180,9 @@ public class SchemaResourceValidationTest {
   }
 
   @Test
-  @DisplayName("chess_turn.stvn_inclf produces invariant expected SHA-256 CAS hash")
+  @DisplayName("chess_turn.stvn_d produces invariant expected SHA-256 CAS hash")
   void testCanonicalCasHashInvariant() throws Exception {
-    var resource = getClass().getResource("/schemas/chess_turn.stvn_inclf");
+    var resource = getClass().getResource("/schemas/chess_turn.stvn_d");
     assertNotNull(resource, "Schema resource must exist");
     String schemaContent = Files.readString(Paths.get(resource.toURI()), StandardCharsets.UTF_8);
 
@@ -192,31 +192,31 @@ public class SchemaResourceValidationTest {
   }
 
   @Test
-  @DisplayName("StvnSchemaFlattener flattens chess_turn.stvn_inclf under 7-tier Semantic Category Order")
-  void testSchemaFlattenerSevenTierOrder() throws Exception {
-    var resource = getClass().getResource("/schemas/chess_turn.stvn_inclf");
+  @DisplayName("StvnSchemaFlattener flattens chess_turn.stvn_d under 5-tier Semantic Category Order")
+  void testSchemaFlattenerFiveTierOrder() throws Exception {
+    var resource = getClass().getResource("/schemas/chess_turn.stvn_d");
     assertNotNull(resource, "Schema resource must exist");
     String schemaContent = Files.readString(Paths.get(resource.toURI()), StandardCharsets.UTF_8);
 
-    String flattened = StvnSchemaFlattener.flatten(Map.of("chess_turn.stvn_inclf", schemaContent), "chess_turn.stvn_inclf");
+    String flattened = StvnSchemaFlattener.flatten(Map.of("chess_turn.stvn_d", schemaContent), "chess_turn.stvn_d");
     assertNotNull(flattened, "Flattened schema string must not be null");
 
-    // Verify 7-tier ordering: Tier 1 (#unsigned) -> Tier 3 (#size / #minSize / #maxSize) -> Tier 4 (#minIncl / #maxExcl)
-    assertTrue(flattened.contains(":org/stvnadore/chess/Rank { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int"),
+    // Verify 5-tier ordering: Tier 1 (#unsigned) -> Tier 3 (#size / #minSize / #maxSize) -> Tier 4 (#minIncl / #maxExcl)
+    assertTrue(flattened.contains(":org/stvnadore/chess/Rank{#unsigned #size 4 #minIncl 1 #maxExcl 9}:Int"),
         "Rank must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
-    assertTrue(flattened.contains(":org/stvnadore/chess/HalfmovesSincePawnOrCapture { #unsigned #size 7 #minIncl 0 #maxExcl 101 } :Int"),
+    assertTrue(flattened.contains(":org/stvnadore/chess/HalfmovesSincePawnOrCapture{#unsigned #size 7 #minIncl 0 #maxExcl 101}:Int"),
         "HalfmovesSincePawnOrCapture must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
-    assertTrue(flattened.contains(":org/stvnadore/chess/TurnNumber { #unsigned #size 10 #minIncl 1 } :Int"),
+    assertTrue(flattened.contains(":org/stvnadore/chess/TurnNumber{#unsigned #size 10 #minIncl 1}:Int"),
         "TurnNumber must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
-    assertTrue(flattened.contains(":org/stvnadore/chess/CentipawnEvaluation { #size 16 } :Int"),
+    assertTrue(flattened.contains(":org/stvnadore/chess/CentipawnEvaluation{#size 16}:Int"),
         "CentipawnEvaluation must declare bit-width in Tier 3");
-    assertTrue(flattened.contains(":org/stvnadore/chess/SanMoveString { #minSize 1 #maxSize 8 } :String"),
+    assertTrue(flattened.contains(":org/stvnadore/chess/SanMoveString{#minSize 1 #maxSize 8}:String"),
         "SanMoveString must declare string bounds in Tier 3");
-    assertTrue(flattened.contains(":org/stvnadore/chess/FenStringFixed { #minSize 1 #maxSize 128 } :String"),
+    assertTrue(flattened.contains(":org/stvnadore/chess/FenStringFixed{#minSize 1 #maxSize 128}:String"),
         "FenStringFixed must declare string bounds in Tier 3");
-    assertTrue(flattened.contains(":org/stvnadore/chess/MatchId { #minSize 1 #maxSize 64 } :String"),
+    assertTrue(flattened.contains(":org/stvnadore/chess/MatchId{#minSize 1 #maxSize 64}:String"),
         "MatchId must declare string bounds in Tier 3");
-    assertTrue(flattened.contains(":org/stvnadore/chess/PlayerName { #minSize 1 #maxSize 64 } :String"),
+    assertTrue(flattened.contains(":org/stvnadore/chess/PlayerName{#minSize 1 #maxSize 64}:String"),
         "PlayerName must declare string bounds in Tier 3");
   }
 }

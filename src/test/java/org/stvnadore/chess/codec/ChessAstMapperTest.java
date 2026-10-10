@@ -24,7 +24,7 @@ public class ChessAstMapperTest {
 
   @BeforeAll
   static void loadSchema() throws Exception {
-    try (InputStream is = ChessAstMapperTest.class.getResourceAsStream("/schemas/chess_turn.stvn_inclf")) {
+    try (InputStream is = ChessAstMapperTest.class.getResourceAsStream("/schemas/chess_turn.stvn_d")) {
       assertNotNull(is);
       schemaContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
     }
@@ -77,7 +77,7 @@ public class ChessAstMapperTest {
     assertTrue(doc.contains("1023"));
     assertTrue(doc.contains("100"));
 
-    StvnValue ast = StvnCompiler.compile(doc).orElseThrow();
+    StvnValue ast = StvnCompiler.compilePayload(doc).orElseThrow();
     GameHistory reconstructed = ChessAstMapper.fromStvnAst(ast);
 
     assertEquals(original, reconstructed);
@@ -147,7 +147,7 @@ public class ChessAstMapperTest {
         }
         """;
 
-    StvnValue transposedAst = StvnCompiler.compile(transposedSchema)
+    StvnValue transposedAst = StvnCompiler.compilePayload(transposedSchema)
         .orElseThrow(() -> new IllegalStateException("Failed to compile transposed test document"));
 
     NominalSchemaMismatchException ex = assertThrows(
@@ -174,7 +174,7 @@ public class ChessAstMapperTest {
         }
         """;
 
-    StvnValue invalidRootAst = StvnCompiler.compile(invalidRootDoc)
+    StvnValue invalidRootAst = StvnCompiler.compilePayload(invalidRootDoc)
         .orElseThrow(() -> new IllegalStateException("Failed to compile invalid root document"));
 
     NominalSchemaMismatchException ex = assertThrows(

@@ -26,7 +26,7 @@ import java.util.Random;
 import java.util.zip.GZIPOutputStream;
 
 /**
- * Benchmarking engine comparing .stvn_bin wire sizes against standard JSON and flat layouts.
+ * Benchmarking engine comparing .stvn_b wire sizes against standard JSON and flat layouts.
  */
 public class ChessWireBenchmarker {
 

@@ -37,7 +37,7 @@ public class ChessCliApplication {
     // Application entry class, non-instantiable
   }
 
-  private static final String SCHEMA_RESOURCE_PATH = "/schemas/chess_turn.stvn_inclf";
+  private static final String SCHEMA_RESOURCE_PATH = "/schemas/chess_turn.stvn_d";
 
   /**
    * Main CLI entry point.
@@ -124,7 +124,7 @@ public class ChessCliApplication {
     byte[] binaryBytes = new byte[binaryBuffer.remaining()];
     binaryBuffer.get(binaryBytes);
 
-    Path outputPath = Paths.get(args.length > 1 ? args[1] : "game_state.stvn_bin");
+    Path outputPath = Paths.get(args.length > 1 ? args[1] : "game_state.stvn_b");
     Files.write(outputPath, binaryBytes);
     System.out.println("Binary payload successfully written to: " + outputPath.toAbsolutePath() +
         " (" + binaryBytes.length + " bytes)");
@@ -139,7 +139,7 @@ public class ChessCliApplication {
 
   private static void runVerify(ChessBinaryCodec codec, String[] args) throws Exception {
     if (args.length < 2) {
-      System.err.println("Usage: verify <file.stvn_bin>");
+      System.err.println("Usage: verify <file.stvn_b>");
       throw new IllegalArgumentException("Missing target binary file argument");
     }
 
@@ -161,7 +161,7 @@ public class ChessCliApplication {
 
   private static void runPoison(ChessBinaryCodec codec, String[] args) throws Exception {
     if (args.length < 2) {
-      System.err.println("Usage: poison <file.stvn_bin>");
+      System.err.println("Usage: poison <file.stvn_b>");
       throw new IllegalArgumentException("Missing target binary file argument");
     }
 
@@ -204,7 +204,7 @@ public class ChessCliApplication {
 
   private static void runReplay(ChessBinaryCodec codec, String[] args) throws Exception {
     if (args.length < 2) {
-      System.err.println("Usage: replay <file.stvn_bin> [--delay <ms>] [--step] [--ascii]");
+      System.err.println("Usage: replay <file.stvn_b> [--delay <ms>] [--step] [--ascii]");
       throw new IllegalArgumentException("Missing target binary file argument");
     }
 
@@ -227,7 +227,7 @@ public class ChessCliApplication {
     }
 
     if (filePath == null) {
-      throw new IllegalArgumentException("Target .stvn_bin file path not specified");
+      throw new IllegalArgumentException("Target .stvn_b file path not specified");
     }
 
     Path inputPath = Paths.get(filePath);
@@ -276,7 +276,7 @@ public class ChessCliApplication {
 
   private static void runPgnImport(ChessBinaryCodec codec, String[] args) throws Exception {
     if (args.length < 2) {
-      System.err.println("Usage: pgn-import <input.pgn> [output.stvn_bin]");
+      System.err.println("Usage: pgn-import <input.pgn> [output.stvn_b]");
       throw new IllegalArgumentException("Missing target PGN file argument");
     }
 
@@ -300,7 +300,7 @@ public class ChessCliApplication {
 
     Path outputPath = (args.length > 2)
         ? Paths.get(args[2])
-        : Paths.get(inputPgnPath.toString().replaceAll("(?i)\\.pgn$", "") + ".stvn_bin");
+        : Paths.get(inputPgnPath.toString().replaceAll("(?i)\\.pgn$", "") + ".stvn_b");
 
     Files.write(outputPath, binaryBytes);
     System.out.println("Strategy 0x07 binary successfully generated: " + outputPath.toAbsolutePath() +
@@ -395,13 +395,13 @@ public class ChessCliApplication {
     System.out.println("""
         STVN Chess AI Reference Application CLI (Java 21 LTS)
         Usage:
-          simulate [output_path.stvn_bin]                  Generate turns, write binary, verify round-trip
-          verify <file.stvn_bin>                           Decode binary and assert SHA-256 schema match
-          poison <file.stvn_bin>                           Corrupt header and assert PoisonedRegistryPayloadException
+          simulate [output_path.stvn_b]                   Generate turns, write binary, verify round-trip
+          verify <file.stvn_b>                            Decode binary and assert SHA-256 schema match
+          poison <file.stvn_b>                            Corrupt header and assert PoisonedRegistryPayloadException
           benchmark                                        Run multi-format wire size and compression benchmark suite
-          replay <file.stvn_bin> [--delay <ms>] [--step] [--ascii]
+          replay <file.stvn_b> [--delay <ms>] [--step] [--ascii]
                                                            Interactive match replay visualizer from STVN binary
-          pgn-import <input.pgn> [output.stvn_bin]          Import standard PGN file, validate, and serialize
+          pgn-import <input.pgn> [output.stvn_b]           Import standard PGN file, validate, and serialize
         """);
   }
 }

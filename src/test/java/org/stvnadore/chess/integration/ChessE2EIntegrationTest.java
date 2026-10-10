@@ -35,7 +35,7 @@ public class ChessE2EIntegrationTest {
 
   @BeforeAll
   static void startTestServer() throws Exception {
-    try (InputStream is = ChessE2EIntegrationTest.class.getResourceAsStream("/schemas/chess_turn.stvn_inclf")) {
+    try (InputStream is = ChessE2EIntegrationTest.class.getResourceAsStream("/schemas/chess_turn.stvn_d")) {
       assertNotNull(is, "Schema resource must exist");
       schemaContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
     }

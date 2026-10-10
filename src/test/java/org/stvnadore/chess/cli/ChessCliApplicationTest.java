@@ -14,9 +14,9 @@ public class ChessCliApplicationTest {
   @Test
   @DisplayName("Valid CLI commands execute successfully with exit code 0")
   void testSuccessfulLifecycleCommands() throws Exception {
-    Path tempBinary = Files.createTempFile("chess_sim_", ".stvn_bin");
+    Path tempBinary = Files.createTempFile("chess_sim_", ".stvn_b");
     Path tempPgn = Files.createTempFile("opera_", ".pgn");
-    Path tempPgnOutput = Files.createTempFile("opera_out_", ".stvn_bin");
+    Path tempPgnOutput = Files.createTempFile("opera_out_", ".stvn_b");
 
     try {
       // 1. Execute simulate -> Exit Code 0
@@ -84,7 +84,7 @@ public class ChessCliApplicationTest {
   @DisplayName("Verification of non-existent binary file emits error to System.err and returns exit code 1")
   void testMissingFileRejection() {
     try (SystemErrCapture capture = SystemErrCapture.mute()) {
-      int exitCode = ChessCliApplication.execute(new String[]{"verify", "non_existent_file.stvn_bin"});
+      int exitCode = ChessCliApplication.execute(new String[]{"verify", "non_existent_file.stvn_b"});
       assertEquals(1, exitCode);
       capture.assertContains("File not found:");
       capture.assertContains("Error executing command 'verify':");
@@ -94,8 +94,8 @@ public class ChessCliApplicationTest {
   @Test
   @DisplayName("Replaying tampered zero-trust payload emits security alert to System.err and returns exit code 2")
   void testPoisonedPayloadRejection() throws Exception {
-    Path tempBinary = Files.createTempFile("poison_source_", ".stvn_bin");
-    Path tempPoisonFile = Files.createTempFile("poison_target_", ".stvn_bin");
+    Path tempBinary = Files.createTempFile("poison_source_", ".stvn_b");
+    Path tempPoisonFile = Files.createTempFile("poison_target_", ".stvn_b");
 
     try {
       // Generate a valid binary first

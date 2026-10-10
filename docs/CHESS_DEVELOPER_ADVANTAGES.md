@@ -2,7 +2,7 @@
 
 - **Document ID**: `STVN-GUIDE-CHESS-01`
 - **Status**: Reference Architecture & Performance Guide  
-- **Version**: 1.3.0
+- **Version**: 2.0.0-SNAPSHOT
 - **Target Repository**: `stvnadore-app-showcase-chess`
 
 ---
@@ -62,18 +62,19 @@ xychart-beta
 
 ## 3. Zero-Trust Cryptographic Schema Verification
 
-Every `.stvn_bin` bytecode payload emitted by `ChessBinaryCodec` embeds the 32-byte SHA-256 hash of its canonical schema in Byte 5 through 36:
+Every `.stvn_b` bytecode payload emitted by `ChessBinaryCodec` embeds the 32-byte SHA-256 hash of its canonical schema in Byte 6 through 37:
 
 ```
 [0..3]    Magic Preamble ("STVN")
 [4]       Control Byte (0x87: Bit 7 = CRC-32C Trailer, Strategy 0x07 = ExplicitSha256)
-[5..36]   32-Byte SHA-256 AST Hash Digest
-[37..N-4] Bit-Packed Nominal AST Data Stream
+[5]       MetaControlByte (0x00: #BODY without document metadata)
+[6..37]   32-Byte SHA-256 AST Hash Digest
+[38..N-4] Bit-Packed Nominal AST Data Stream
 [N-3..N]  4-Byte Little-Endian IEEE 802.3 CRC-32C Checksum Trailer
 ```
 
 ### Protection Against Poisoned Payloads
-If an adversary mutates the schema definition, alters bit-width constraints, or injects malicious payloads, `StvnBinaryDecoder` detects the cryptographic hash mismatch at byte offset 5 and immediately halts deserialization with a `PoisonedRegistryPayloadException`. Under `stvnadore-core:2.0.0-SNAPSHOT`, the canonical schema CAS digest is `630a9ad15763ea9b97240cb6417b23e1c7e45603f5a727ccd05181c511804fd6`, featuring factorized scalar types, discrete half-open intervals (`[1, 9)`, `[0, 101)`), bounded nominal strings (`{ #minSize 1 #maxSize 128 } :String`, `{ #minSize 1 #maxSize 8 } :String`, `{ #minSize 1 #maxSize 64 } :String`), `:package :org/stvnadore/chess`, and strict zero-tab invariant enforcement (`ERR_TAB_CHARACTER_FORBIDDEN`).
+If an adversary mutates the schema definition, alters bit-width constraints, or injects malicious payloads, `StvnBinaryDecoder` detects the cryptographic hash mismatch at byte offset 6 and immediately halts deserialization with a `PoisonedRegistryPayloadException`. Under `stvnadore-core:2.0.0-SNAPSHOT`, the canonical schema CAS digest is `630a9ad15763ea9b97240cb6417b23e1c7e45603f5a727ccd05181c511804fd6`, featuring factorized scalar types, discrete half-open intervals (`[1, 9)`, `[0, 101)`), bounded nominal strings (`{ #minSize 1 #maxSize 128 } :String`, `{ #minSize 1 #maxSize 8 } :String`, `{ #minSize 1 #maxSize 64 } :String`), `:package :org/stvnadore/chess`, and strict zero-tab invariant enforcement (`ERR_TAB_CHARACTER_FORBIDDEN`).
 
 ```bash
 # Verify poisoned payload rejection via CLI:

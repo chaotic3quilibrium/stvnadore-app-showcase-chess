@@ -34,7 +34,7 @@ public class ChessSerializationFuzzTest {
 
   @BeforeAll
   static void setUp() throws Exception {
-    try (InputStream is = ChessSerializationFuzzTest.class.getResourceAsStream("/schemas/chess_turn.stvn_inclf")) {
+    try (InputStream is = ChessSerializationFuzzTest.class.getResourceAsStream("/schemas/chess_turn.stvn_d")) {
       assertNotNull(is);
       schemaContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
       codec = new ChessBinaryCodec(schemaContent);
@@ -127,7 +127,7 @@ public class ChessSerializationFuzzTest {
     }
     String docTurn1024 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g-overflow\" \"W\" \"B\" [ ( 1024 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
-    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docTurn1024));
+    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docTurn1024));
   }
 
   @Test
@@ -143,7 +143,7 @@ public class ChessSerializationFuzzTest {
     }
     String docHalfmove101 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g-halfmove\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 101 ) \"fen\" 0 ) ] #None\n  )\n}";
-    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(docHalfmove101));
+    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docHalfmove101));
   }
 
   private static GameHistory buildSmallGame() {

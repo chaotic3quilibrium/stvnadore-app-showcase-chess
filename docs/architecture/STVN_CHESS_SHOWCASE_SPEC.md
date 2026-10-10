@@ -2,9 +2,9 @@
 
 **Document ID:** `STVN-SPEC-CHESS-01`  
 **Status:** Canonical Architecture Specification  
-**Version:** `1.0.0-PROPOSAL`  
+**Version:** `2.0.0-SNAPSHOT`  
 **Target Repository:** `stvnadore-app-showcase-chess` (`ij_stvnadore_example_chess`)  
-**Target Version Baseline:** `2.0.0-PROPOSAL`  
+**Target Version Baseline:** `2.0.0-SNAPSHOT`  
 **Governing Standard:** Simplified Technical English (STE-01 through STE-07)  
 **Foundational Baselines:** `STVN_LANGUAGE_SPEC.md` (v1.3.1), `STVN-VOP-MANIFESTO.md`, [`STVN_REPOSITORY_SPEC.md`](file:///c:/Projects/Java/stvnadore/ij_stvnadore_repository/docs/architecture/STVN_REPOSITORY_SPEC.md)  
 
@@ -40,7 +40,7 @@ The showcase integrates three ecosystem layers:
 
 ## 2. Domain-to-STVN Type Mapping Invariants (STVN 2.0.0 Standards)
 
-The chess domain schema (`src/main/resources/schemas/chess_turn.stvn_inclf`) defines all types in `:package :org/stvnadore/chess`. Under STVN 2.0.0, the schema conforms to strict scalar factorization, discrete half-open intervals, and string cardinality rules.
+The chess domain schema (`src/main/resources/schemas/chess_turn.stvn_d`) defines all types in `:package :org/stvnadore/chess`. Under STVN 2.0.0, the schema conforms to strict scalar factorization, discrete half-open intervals, and string cardinality rules.
 
 ```mermaid
 flowchart TD
@@ -171,9 +171,10 @@ flowchart TD
     subgraph "Binary Wire Frame Layout (Little-Endian)"
         H1["Bytes 0-3: Magic 'STVN' (0x53 0x54 0x56 0x4E)"]:::wire
         H2["Byte 4: Control Byte 0x87 (Bit 7=CRC-32C, Bits 0-3=Strategy 0x7)"]:::wire
-        H3["Bytes 5-36: 32-Byte SHA-256 CAS Schema Digest"]:::digest
-        H4["Bytes 37..N-4: Bit-Packed AST Payload Slices"]:::wire
-        H5["Bytes N-4..N: 4-Byte IEEE 802.3 CRC-32C Trailer"]:::crc
+        H3["Byte 5: MetaControlByte 0x00 (#BODY)"]:::wire
+        H4["Bytes 6-37: 32-Byte SHA-256 CAS Schema Digest"]:::digest
+        H5["Bytes 38..N-4: Bit-Packed AST Payload Slices"]:::wire
+        H6["Bytes N-4..N: 4-Byte IEEE 802.3 CRC-32C Trailer"]:::crc
     end
 ```
 
@@ -184,14 +185,15 @@ While the core STVN 2.0.0 binary specification supports both trailerless (`Bit 7
 Strategy `0x7` wire frames specify Byte 4 and the leading header slice as follows:
 - **Bits 0–3 (`0x7`):** Strategy Identifier (`ExplicitSha256`).
 - **Bit 7 (`0x80`):** CRC-32C Trailer Sentinel (`1 = Present`). When combined with Strategy `0x7`, Byte 4 evaluates to `0x87`.
-- **Bytes 5–36:** The 32-byte binary SHA-256 digest of the canonical `chess_turn.stvn_inclf` schema.
+- **Byte 5 (`0x00`):** `MetaControlByte` declaring payload identity without dynamic header metadata fields (`#BODY`).
+- **Bytes 6–37:** The 32-byte binary SHA-256 digest of the canonical `chess_turn.stvn_d` schema.
 
 ### 4.2 Zero-Trust Verification Pipeline
 
 When reading an incoming binary stream, `ChessBinaryCodec` executes a four-stage zero-trust check:
 1. **Magic Byte Verification:** Confirms Bytes 0–3 equal ASCII `'STVN'` (`0x53 0x54 0x56 0x4E`) in Network Byte Order.
 2. **CRC-32C Integrity Verification:** Computes the CRC-32C checksum over Bytes $0 \dots N-4$. Compares the result against the final 4 bytes. Any mismatch throws `MalformedPayloadException`.
-3. **Cryptographic CAS Hash Parity:** Extracts Bytes 5–36. Compares the digest against the compiled schema digest. A mismatch throws `PoisonedRegistryPayloadException`.
+3. **Cryptographic CAS Hash Parity:** Extracts Bytes 6–37 (following Byte 5 `MetaControlByte`). Compares the digest against the compiled schema digest. A mismatch throws `PoisonedRegistryPayloadException`.
 4. **Registry Fallback Resolution:** If the schema is not cached locally, queries `GET /api/v1/schemas/cas/{hash}` on `stvnadore-repository`.
 
 ---

@@ -34,7 +34,7 @@ public class PayloadCorruptionFuzzTest {
 
   @BeforeAll
   static void setUp() throws Exception {
-    try (InputStream is = PayloadCorruptionFuzzTest.class.getResourceAsStream("/schemas/chess_turn.stvn_inclf")) {
+    try (InputStream is = PayloadCorruptionFuzzTest.class.getResourceAsStream("/schemas/chess_turn.stvn_d")) {
       assertNotNull(is, "Schema resource must exist");
       schemaContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
       codec = new ChessBinaryCodec(schemaContent);
@@ -50,7 +50,7 @@ public class PayloadCorruptionFuzzTest {
     validBuffer.get(validBytes);
 
     int totalBytes = validBytes.length;
-    assertTrue(totalBytes > 41, "Strategy 0x07 payload must contain 37-byte header, body, and 4-byte CRC trailer");
+    assertTrue(totalBytes > 42, "Strategy 0x07 payload must contain 38-byte header, body, and 4-byte CRC trailer");
 
     int crcProtectedCorruptionCount = 0;
 
@@ -74,14 +74,14 @@ public class PayloadCorruptionFuzzTest {
   }
 
   @Test
-  @DisplayName("All 32 SHA-256 header digest bytes (offsets 5..36) with recomputed CRC strictly throw PoisonedRegistryPayloadException")
+  @DisplayName("All 32 SHA-256 header digest bytes (offsets 6..37) with recomputed CRC strictly throw PoisonedRegistryPayloadException")
   void testHeaderSha256EveryByteTamperRejection() {
     GameHistory game = buildRepresentativeGame();
     ByteBuffer validBuffer = codec.encode(game);
     byte[] validBytes = new byte[validBuffer.remaining()];
     validBuffer.get(validBytes);
 
-    for (int offset = 5; offset <= 36; offset++) {
+    for (int offset = 6; offset <= 37; offset++) {
       byte[] tampered = validBytes.clone();
       tampered[offset] ^= 0x01; // Single bit mutation
 
@@ -107,7 +107,7 @@ public class PayloadCorruptionFuzzTest {
     byte[] validBytes = new byte[validBuffer.remaining()];
     validBuffer.get(validBytes);
 
-    for (int offset = 5; offset <= 36; offset++) {
+    for (int offset = 6; offset <= 37; offset++) {
       byte[] tampered = validBytes.clone();
       tampered[offset] ^= 0x01; // Single bit mutation without trailer update
 

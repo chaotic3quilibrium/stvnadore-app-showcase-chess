@@ -1,6 +1,6 @@
 # STVN Chess Reference Application (`stvnadore-app-showcase-chess`)
 
-[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-2.0.0--PROPOSAL-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
+[![STVN Chess Reference Application](https://img.shields.io/badge/STVN%20App%20Showcase%20Chess-2.0.0--SNAPSHOT-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-app-showcase-chess/blob/main/docs/CHESS_DEVELOPER_ADVANTAGES.md)
 [![Java 21 LTS](https://img.shields.io/badge/Java-21%20LTS-blue.svg)](https://openjdk.org/projects/jdk/21/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![STVN Core](https://img.shields.io/badge/STVN%20Core-2.0.0--SNAPSHOT-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
@@ -10,7 +10,7 @@ Production reference application demonstrating STVN binary encoding, zero-trust 
 
 ---
 
-- Version: 2.0.0-PROPOSAL - 2026.09.21
+- Version: 2.0.0-SNAPSHOT - 2026.10.10
 
 ---
 
@@ -105,11 +105,17 @@ flowchart TD
 
 ## STVN Schema & Bit-Width Design
 
-The canonical schema definition is located at `src/main/resources/schemas/chess_turn.stvn_inclf`. STVN minimizes wire footprint by packing domain-constrained numeric types and enums to their exact required bit widths:
+The canonical schema definition is located at `src/main/resources/schemas/chess_turn.stvn_d`. STVN minimizes wire footprint by packing domain-constrained numeric types and enums to their exact required bit widths:
 
 ```stvn
 {
-  // chess_turn.stvn_inclf
+  // chess_turn.stvn_d
+  :meta {
+    #name "chess_turn"
+    #domain "gaming"
+    #kind #DEFS
+  }
+
   :defs {
     :package :org/stvnadore/chess {
       // --- Board Coordinates & Pieces ---
@@ -221,26 +227,26 @@ The application provides a single unified entry point via `ChessCliApplication` 
 ### Subcommand Invocation Examples
 
 ```bash
-# 1. Simulate a validated chess match and serialize to Strategy 0x07 binary (.stvn_bin)
-./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=simulate game_output.stvn_bin"
+# 1. Simulate a validated chess match and serialize to Strategy 0x07 binary (.stvn_b)
+./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=simulate game_output.stvn_b"
 
 # 2. Verify binary schema CAS hash integrity and inspect decoded metadata
-./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=verify game_output.stvn_bin"
+./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=verify game_output.stvn_b"
 
 # 3. Simulate zero-trust attack (corrupt header hash byte) and assert exit code 2
-./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=poison game_output.stvn_bin"
+./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=poison game_output.stvn_b"
 
 # 4. Execute multi-format wire benchmarking suite across historical and synthetic games
 ./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=benchmark"
 
 # 5. Interactively replay a binary match in terminal with Unicode graphics
-./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=replay game_output.stvn_bin --delay 300"
+./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=replay game_output.stvn_b --delay 300"
 
 # 6. Replay in step-by-step mode with plain ASCII fallback for headless CI terminals
-./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=replay game_output.stvn_bin --step --ascii"
+./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=replay game_output.stvn_b --step --ascii"
 
 # 7. Import standard PGN file, validate legal moves, and compile into Strategy 0x07 binary
-./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=pgn-import match.pgn match.stvn_bin"
+./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=pgn-import match.pgn match.stvn_b"
 ```
 
 ---
@@ -254,15 +260,17 @@ STVN enforces cryptographic schema pinning at the binary frame boundary using **
 |                            STRATEGY 0x07 BINARY FRAME LAYOUT                                      |
 +---------------------------------------------------------------------------------------------------+
 | Bytes 0..3   | Magic Header: ASCII "STVN" (0x53, 0x54, 0x56, 0x4E)                                |
-| Byte 4       | Strategy Identifier: 0x07 (ExplicitSha256)                                         |
-| Bytes 5..36  | 32-Byte SHA-256 Digest of canonical schema (64-char hex CAS identifier)            |
-| Bytes 37..N  | Serialized Value Payload (Typed AST Nodes with bit-packed fields)                  |
+| Byte 4       | Control Byte: 0x87 (Bit 7 = CRC-32C, Bits 0..3 = Strategy 0x07 ExplicitSha256)     |
+| Byte 5       | MetaControlByte: 0x00 (#BODY without document metadata)                             |
+| Bytes 6..37  | 32-Byte SHA-256 Digest of canonical schema (64-char hex CAS identifier)            |
+| Bytes 38..N-4| Serialized Value Payload (Typed AST Nodes with bit-packed fields)                  |
+| Bytes N-4..N | 4-Byte IEEE 802.3 CRC-32C Trailer                                                  |
 +---------------------------------------------------------------------------------------------------+
 ```
 
-When a client decodes a `.stvn_bin` binary file:
+When a client decodes a `.stvn_b` binary file:
 
-1. `StvnBinaryDecoder.open()` reads the 37-byte header and extracts the embedded SHA-256 digest.
+1. `StvnBinaryDecoder.open()` reads the 38-byte header, processes Byte 5 `MetaControlByte`, and extracts the embedded SHA-256 digest at Bytes 6..37.
 2. The decoder computes the SHA-256 digest of the locally resolved schema.
 3. If a single bit in the 32-byte digest differs, the decoder immediately halts and throws `PoisonedRegistryPayloadException`.
 4. Body bytes are never parsed if the header digest check fails.
@@ -379,10 +387,10 @@ Please email: <jim.oflaherty.jr+sacrml@gmail.com>, letting us know what license 
 
 # Version History
 
-## v2.0.0-PROPOSAL
+## v2.0.0-SNAPSHOT
 
-- 2026.09.21
-- Modernized domain schema (`chess_turn.stvn_inclf`) to STVN 2.0.0 standards:
+- 2026.10.10
+- Modernized domain schema (`chess_turn.stvn_d`) to STVN 2.0.0 standards:
   - Factorized compound scalar types into base types with metadata facets (`{ #unsigned #size <bits> } :Int`)
   - Enforced discrete half-open intervals (`#minIncl 1 #maxExcl 9` for `:Rank`, `#minIncl 0 #maxExcl 101` for `:HalfmovesSincePawnOrCapture`)
   - Applied string character cardinality bounds (`#minSize 1 #maxSize <N>`) without prohibited `#size` bit-width facets (MCT § 3.1.3)

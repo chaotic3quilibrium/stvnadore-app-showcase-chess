@@ -38,8 +38,8 @@ public class MultiGameSimulationHardeningTest {
 
   @BeforeAll
   static void setUp() throws Exception {
-    try (InputStream is = MultiGameSimulationHardeningTest.class.getResourceAsStream("/schemas/chess_turn.stvn_inclf")) {
-      assertNotNull(is, "Schema resource /schemas/chess_turn.stvn_inclf must exist");
+    try (InputStream is = MultiGameSimulationHardeningTest.class.getResourceAsStream("/schemas/chess_turn.stvn_d")) {
+      assertNotNull(is, "Schema resource /schemas/chess_turn.stvn_d must exist");
       schemaContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
       codec = new ChessBinaryCodec(schemaContent);
     }

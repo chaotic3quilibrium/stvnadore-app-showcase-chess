@@ -94,7 +94,7 @@ public final class ChessAstMapper {
    */
   public static StvnValue toStvnAst(GameHistory game, String schemaContent) {
     String docText = toStvnDocument(game, schemaContent);
-    return StvnCompiler.compile(docText)
+    return StvnCompiler.compilePayload(docText)
         .orElseThrow(() -> new IllegalStateException("Failed to compile GameHistory into valid STVN AST"));
   }
 

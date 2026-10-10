@@ -1,4 +1,9 @@
 {
+  :meta {
+    #name "chess_turn"
+    #domain "gaming"
+    #kind #DEFS
+  }
   // @spec: STVN-SPEC-CHESS-01
   :defs {
     :package :org/stvnadore/chess {
