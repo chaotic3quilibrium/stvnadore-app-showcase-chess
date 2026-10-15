@@ -35,7 +35,7 @@ public class SchemaResourceValidationTest {
 
   private static final String SCHEMAS_RESOURCE_DIR = "/schemas";
   private static final String KNOWN_CANONICAL_CAS_HASH =
-      "630a9ad15763ea9b97240cb6417b23e1c7e45603f5a727ccd05181c511804fd6";
+      "e22af026a73e41318ea0a58bb9de8b166c5980c6bd60272b1b4d0efe476b3cfc";
 
   /**
    * Discovers all packaged schema resource paths across the project.
@@ -204,7 +204,7 @@ public class SchemaResourceValidationTest {
     // Verify 5-tier ordering: Tier 1 (#unsigned) -> Tier 3 (#size / #minSize / #maxSize) -> Tier 4 (#minIncl / #maxExcl)
     assertTrue(flattened.contains(":org/stvnadore/chess/Rank{#unsigned #size 4 #minIncl 1 #maxExcl 9}:Int"),
         "Rank must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
-    assertTrue(flattened.contains(":org/stvnadore/chess/HalfmovesSincePawnOrCapture{#unsigned #size 7 #minIncl 0 #maxExcl 101}:Int"),
+    assertTrue(flattened.contains(":org/stvnadore/chess/HalfmovesSincePawnOrCapture{#unsigned #size 7 #maxExcl 101}:Int"),
         "HalfmovesSincePawnOrCapture must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
     assertTrue(flattened.contains(":org/stvnadore/chess/TurnNumber{#unsigned #size 10 #minIncl 1}:Int"),
         "TurnNumber must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");

@@ -116,7 +116,7 @@ public class ChessAstMapperTest {
               :PromotionRole    { #filterExcl [ #PAWN #KING ] } :PieceRole
               :PromotionOption  :Option( :PromotionRole )
               :IsCapture        :Boolean
-              :HalfmovesSincePawnOrCapture { #unsigned #size 7 #minIncl 0 #maxExcl 101 } :Int
+              :HalfmovesSincePawnOrCapture { #unsigned #size 7 #maxExcl 101 } :Int
               :SanMoveString    { #minSize 1 #maxSize 8 } :String
               :Move             :Tuple( :Piece :Square :PromotionOption :IsCapture :HalfmovesSincePawnOrCapture )
               :TurnNumber       { #unsigned #size 10 #minIncl 1 } :Int
