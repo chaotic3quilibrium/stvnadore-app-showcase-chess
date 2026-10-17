@@ -2,6 +2,7 @@ package org.stvnadore.chess.codec;
 
 import org.stvnadore.chess.domain.GameHistory;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.binary.SchemaIdentityStrategy;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
@@ -39,7 +40,7 @@ public class ChessBinaryCodec {
     
     // Compile dummy document with schema to extract ResolvedSchema
     String wrapperDoc = wrapSchemaWithDummyType(schemaSourceText);
-    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc)
+    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc, null, StvnParserConfig.SYSTEM_STRICT)
         .orElseThrow(() -> new IllegalStateException("Failed to compile schema definition"));
     
     this.resolvedSchema = sampleValue.schema();
@@ -89,7 +90,7 @@ public class ChessBinaryCodec {
    */
   public ByteBuffer encodeSchemaSelfDescribing() {
     String wrapperDoc = wrapSchemaWithDummyType(schemaSourceText);
-    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc)
+    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc, null, StvnParserConfig.SYSTEM_STRICT)
         .orElseThrow(() -> new IllegalStateException("Failed to compile schema definition"));
     var strategy = new SchemaIdentityStrategy.SelfDescribingSchema(wrapperDoc);
     var encoder = new StvnBinaryEncoder(true, strategy, true);

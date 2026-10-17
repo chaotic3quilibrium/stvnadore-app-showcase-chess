@@ -9,6 +9,7 @@ import org.stvnadore.chess.domain.Piece;
 import org.stvnadore.chess.domain.Square;
 import org.stvnadore.chess.domain.TurnState;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.ir.StvnValue;
 
 import java.io.InputStream;
@@ -77,7 +78,7 @@ public class ChessAstMapperTest {
     assertTrue(doc.contains("1023"));
     assertTrue(doc.contains("100"));
 
-    StvnValue ast = StvnCompiler.compilePayload(doc).orElseThrow();
+    StvnValue ast = StvnCompiler.compilePayload(doc, null, StvnParserConfig.SYSTEM_STRICT).orElseThrow();
     GameHistory reconstructed = ChessAstMapper.fromStvnAst(ast);
 
     assertEquals(original, reconstructed);
@@ -147,7 +148,7 @@ public class ChessAstMapperTest {
         }
         """;
 
-    StvnValue transposedAst = StvnCompiler.compilePayload(transposedSchema)
+    StvnValue transposedAst = StvnCompiler.compilePayload(transposedSchema, null, StvnParserConfig.SYSTEM_STRICT)
         .orElseThrow(() -> new IllegalStateException("Failed to compile transposed test document"));
 
     NominalSchemaMismatchException ex = assertThrows(

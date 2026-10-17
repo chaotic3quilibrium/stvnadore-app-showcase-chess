@@ -444,7 +444,7 @@ Please email: <jim.oflaherty.jr+sacrml@gmail.com>, letting us know what license 
 ## v1.1.1
 
 - 2026.09.07
-- Deprecated `"""->[TAG]` in favor of canonical `"""[TAG]` (scheduled for removal in 2.0.0)
+- Prohibited `"""->[TAG]` in favor of canonical `"""[TAG]` (strictly prohibited under Rule STR-04 / `E026` in 2.0.0)
 
 ## v1.1.0
 

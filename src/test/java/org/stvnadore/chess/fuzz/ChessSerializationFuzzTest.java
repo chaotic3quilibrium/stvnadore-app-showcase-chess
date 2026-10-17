@@ -15,6 +15,7 @@ import org.stvnadore.chess.domain.TurnState;
 import org.stvnadore.chess.engine.FenCodec;
 import org.stvnadore.chess.engine.MoveValidator;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.validation.MalformedPayloadException;
 
 import java.io.InputStream;
@@ -127,7 +128,7 @@ public class ChessSerializationFuzzTest {
     }
     String docTurn1024 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g-overflow\" \"W\" \"B\" [ ( 1024 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
-    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docTurn1024));
+    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docTurn1024, null, StvnParserConfig.SYSTEM_STRICT));
   }
 
   @Test
@@ -143,7 +144,7 @@ public class ChessSerializationFuzzTest {
     }
     String docHalfmove101 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g-halfmove\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 101 ) \"fen\" 0 ) ] #None\n  )\n}";
-    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docHalfmove101));
+    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docHalfmove101, null, StvnParserConfig.SYSTEM_STRICT));
   }
 
   private static GameHistory buildSmallGame() {

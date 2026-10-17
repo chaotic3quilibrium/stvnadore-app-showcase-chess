@@ -6,6 +6,7 @@ import org.stvnadore.chess.domain.Piece;
 import org.stvnadore.chess.domain.Square;
 import org.stvnadore.chess.domain.TurnState;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnValue;
 
@@ -94,7 +95,7 @@ public final class ChessAstMapper {
    */
   public static StvnValue toStvnAst(GameHistory game, String schemaContent) {
     String docText = toStvnDocument(game, schemaContent);
-    return StvnCompiler.compilePayload(docText)
+    return StvnCompiler.compilePayload(docText, null, StvnParserConfig.SYSTEM_STRICT)
         .orElseThrow(() -> new IllegalStateException("Failed to compile GameHistory into valid STVN AST"));
   }
 

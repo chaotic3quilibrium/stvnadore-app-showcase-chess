@@ -99,7 +99,7 @@ public class SchemaResourceValidationTest {
 
     // 2. Strict Parse Tree Validation (ANTLR4 fail-fast BailErrorStrategy)
     StvnParser.StvnDocumentContext docCtx = assertDoesNotThrow(
-        () -> StvnCompiler.parse(content, StvnParserConfig.STRICT),
+        () -> StvnCompiler.parse(content, StvnParserConfig.SYSTEM_STRICT),
         "Schema " + filename + " must parse cleanly under strict parser configuration"
     );
     assertNotNull(docCtx, "Parse tree context must not be null for " + filename);
@@ -108,7 +108,7 @@ public class SchemaResourceValidationTest {
     var result = StvnCompiler.compileToResult(
         content,
         schemaPath.toAbsolutePath().toString(),
-        StvnParserConfig.STRICT
+        StvnParserConfig.SYSTEM_STRICT
     );
 
     if (result.hasErrors()) {
@@ -121,6 +121,7 @@ public class SchemaResourceValidationTest {
 
     // 4. Semantic Type Resolution & Zero-Shadowing Enforcement
     var diagnosticBag = new DiagnosticBag();
+    StvnTypeResolver.registerDocumentConfig(docCtx, StvnParserConfig.SYSTEM_STRICT);
     Map<String, ?> definitions = StvnTypeResolver.getDocumentDefinitions(docCtx, diagnosticBag);
     assertFalse(diagnosticBag.hasErrors(),
         () -> "Semantic diagnostics reported for " + filename + ": " + diagnosticBag.toList());
@@ -165,7 +166,7 @@ public class SchemaResourceValidationTest {
     var result = StvnCompiler.compileToResult(
         consumerDocument,
         virtualDocPath.toString(),
-        StvnParserConfig.STRICT
+        StvnParserConfig.SYSTEM_STRICT
     );
 
     assertFalse(result.hasErrors(), () -> {
