@@ -105,7 +105,7 @@ flowchart TD
 
 ## STVN Schema & Bit-Width Design
 
-The canonical schema definition is located at `src/main/resources/schemas/chess_turn.stvn_d`. STVN minimizes wire footprint by packing domain-constrained numeric types and enums to their exact required bit widths:
+The canonical schema definition is located at `src/main/resources/schemas/chess_turn.gaming.stvn_d`. STVN minimizes wire footprint by packing domain-constrained numeric types and enums to their exact required bit widths:
 
 ```stvn
 {

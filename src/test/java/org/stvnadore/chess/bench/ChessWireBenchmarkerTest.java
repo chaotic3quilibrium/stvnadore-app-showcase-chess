@@ -24,7 +24,7 @@ public class ChessWireBenchmarkerTest {
 
   @BeforeAll
   static void setUp() throws Exception {
-    try (InputStream is = ChessWireBenchmarkerTest.class.getResourceAsStream("/schemas/chess_turn.stvn_d")) {
+    try (InputStream is = ChessWireBenchmarkerTest.class.getResourceAsStream("/schemas/chess_turn.gaming.stvn_d")) {
       assertNotNull(is);
       schemaText = new String(is.readAllBytes(), StandardCharsets.UTF_8);
       benchmarker = new ChessWireBenchmarker(schemaText);

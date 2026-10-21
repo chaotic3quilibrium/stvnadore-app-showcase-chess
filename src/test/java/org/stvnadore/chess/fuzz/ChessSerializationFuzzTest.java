@@ -35,7 +35,7 @@ public class ChessSerializationFuzzTest {
 
   @BeforeAll
   static void setUp() throws Exception {
-    try (InputStream is = ChessSerializationFuzzTest.class.getResourceAsStream("/schemas/chess_turn.stvn_d")) {
+    try (InputStream is = ChessSerializationFuzzTest.class.getResourceAsStream("/schemas/chess_turn.gaming.stvn_d")) {
       assertNotNull(is);
       schemaContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
       codec = new ChessBinaryCodec(schemaContent);

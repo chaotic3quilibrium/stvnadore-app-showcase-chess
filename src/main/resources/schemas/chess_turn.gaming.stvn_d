@@ -12,7 +12,7 @@
       :Rank             { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int
       :Square           :Tuple( :File :Rank )
       :AlgebraicSquare  { #regex "^[a-h][1-8]$" } :String
-      :SquareIndex      { #unsigned #size 6 #maxExcl 64 } :Int
+      :SquareIndex      { #unsigned #size 6 } :Int
 
       :Color            :Enum [ #WHITE #BLACK ]
       :PieceRole        :Enum [ #PAWN #KNIGHT #BISHOP #ROOK #QUEEN #KING ]

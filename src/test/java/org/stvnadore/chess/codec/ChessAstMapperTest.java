@@ -25,7 +25,7 @@ public class ChessAstMapperTest {
 
   @BeforeAll
   static void loadSchema() throws Exception {
-    try (InputStream is = ChessAstMapperTest.class.getResourceAsStream("/schemas/chess_turn.stvn_d")) {
+    try (InputStream is = ChessAstMapperTest.class.getResourceAsStream("/schemas/chess_turn.gaming.stvn_d")) {
       assertNotNull(is);
       schemaContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
     }

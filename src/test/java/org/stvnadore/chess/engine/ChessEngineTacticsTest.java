@@ -26,7 +26,7 @@ public class ChessEngineTacticsTest {
 
   @BeforeAll
   static void setUpCodec() throws Exception {
-    try (InputStream is = ChessEngineTacticsTest.class.getResourceAsStream("/schemas/chess_turn.stvn_d")) {
+    try (InputStream is = ChessEngineTacticsTest.class.getResourceAsStream("/schemas/chess_turn.gaming.stvn_d")) {
       assertNotNull(is, "Embedded schema must exist");
       String schema = new String(is.readAllBytes(), StandardCharsets.UTF_8);
       codec = new ChessBinaryCodec(schema);

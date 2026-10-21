@@ -141,13 +141,13 @@ public class SchemaResourceValidationTest {
   }
 
   @Test
-  @DisplayName("chess_turn.stvn_d can be cleanly imported via :include in a consumer STVN document")
+  @DisplayName("chess_turn.gaming.stvn_d can be cleanly imported via :include in a consumer STVN document")
   void testChessTurnSchemaIncludeResolution() throws Exception {
-    var resource = getClass().getResource("/schemas/chess_turn.stvn_d");
+    var resource = getClass().getResource("/schemas/chess_turn.gaming.stvn_d");
     assertNotNull(resource, "Schema resource must exist");
     Path schemaFilePath = Paths.get(resource.toURI()).toAbsolutePath();
 
-    // Construct a consumer STVN document that imports chess_turn.stvn_d
+    // Construct a consumer STVN document that imports chess_turn.gaming.stvn_d
     String consumerDocument = """
         {
           :defs {
@@ -170,7 +170,7 @@ public class SchemaResourceValidationTest {
     );
 
     assertFalse(result.hasErrors(), () -> {
-      StringBuilder sb = new StringBuilder("Failed to resolve :include of chess_turn.stvn_d:\n");
+      StringBuilder sb = new StringBuilder("Failed to resolve :include of chess_turn.gaming.stvn_d:\n");
       for (StvnDiagnostic d : result.diagnostics()) {
         sb.append(String.format("  - Line %d, Col %d: %s\n", d.line(), d.column(), d.message()));
       }
@@ -181,9 +181,9 @@ public class SchemaResourceValidationTest {
   }
 
   @Test
-  @DisplayName("chess_turn.stvn_d produces invariant expected SHA-256 CAS hash")
+  @DisplayName("chess_turn.gaming.stvn_d produces invariant expected SHA-256 CAS hash")
   void testCanonicalCasHashInvariant() throws Exception {
-    var resource = getClass().getResource("/schemas/chess_turn.stvn_d");
+    var resource = getClass().getResource("/schemas/chess_turn.gaming.stvn_d");
     assertNotNull(resource, "Schema resource must exist");
     String schemaContent = Files.readString(Paths.get(resource.toURI()), StandardCharsets.UTF_8);
 
@@ -193,13 +193,13 @@ public class SchemaResourceValidationTest {
   }
 
   @Test
-  @DisplayName("StvnSchemaFlattener flattens chess_turn.stvn_d under 5-tier Semantic Category Order")
+  @DisplayName("StvnSchemaFlattener flattens chess_turn.gaming.stvn_d under 5-tier Semantic Category Order")
   void testSchemaFlattenerFiveTierOrder() throws Exception {
-    var resource = getClass().getResource("/schemas/chess_turn.stvn_d");
+    var resource = getClass().getResource("/schemas/chess_turn.gaming.stvn_d");
     assertNotNull(resource, "Schema resource must exist");
     String schemaContent = Files.readString(Paths.get(resource.toURI()), StandardCharsets.UTF_8);
 
-    String flattened = StvnSchemaFlattener.flatten(Map.of("chess_turn.stvn_d", schemaContent), "chess_turn.stvn_d");
+    String flattened = StvnSchemaFlattener.flatten(Map.of("chess_turn.gaming.stvn_d", schemaContent), "chess_turn.gaming.stvn_d");
     assertNotNull(flattened, "Flattened schema string must not be null");
 
     // Verify 5-tier ordering: Tier 1 (#unsigned) -> Tier 3 (#size / #minSize / #maxSize) -> Tier 4 (#minIncl / #maxExcl)
@@ -207,6 +207,8 @@ public class SchemaResourceValidationTest {
         "Rank must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
     assertTrue(flattened.contains(":gaming/chess/HalfmovesSincePawnOrCapture{#unsigned #size 7 #maxExcl 101}:Int"),
         "HalfmovesSincePawnOrCapture must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
+    assertTrue(flattened.contains(":gaming/chess/SquareIndex{#unsigned #size 6}:Int"),
+        "SquareIndex must declare #unsigned #size 6 without redundant #maxExcl 64 under Rule E036");
     assertTrue(flattened.contains(":gaming/chess/TurnNumber{#unsigned #size 10 #minIncl 1}:Int"),
         "TurnNumber must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
     assertTrue(flattened.contains(":gaming/chess/CentipawnEvaluation{#size 16}:Int"),

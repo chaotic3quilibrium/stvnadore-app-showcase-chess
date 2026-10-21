@@ -37,7 +37,7 @@ public class ChessCliApplication {
     // Application entry class, non-instantiable
   }
 
-  private static final String SCHEMA_RESOURCE_PATH = "/schemas/chess_turn.stvn_d";
+  private static final String SCHEMA_RESOURCE_PATH = "/schemas/chess_turn.gaming.stvn_d";
 
   /**
    * Main CLI entry point.

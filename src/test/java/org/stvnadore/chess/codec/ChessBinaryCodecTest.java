@@ -25,7 +25,7 @@ public class ChessBinaryCodecTest {
 
   @BeforeAll
   static void setUp() throws Exception {
-    try (InputStream is = ChessBinaryCodecTest.class.getResourceAsStream("/schemas/chess_turn.stvn_d")) {
+    try (InputStream is = ChessBinaryCodecTest.class.getResourceAsStream("/schemas/chess_turn.gaming.stvn_d")) {
       assertNotNull(is, "Schema resource must exist");
       rawSchemaText = new String(is.readAllBytes(), StandardCharsets.UTF_8);
       codec = new ChessBinaryCodec(rawSchemaText);
