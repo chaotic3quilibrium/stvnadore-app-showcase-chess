@@ -122,13 +122,13 @@ public class ChessSerializationFuzzTest {
     if (defsOnly.startsWith("{")) {
       defsOnly = defsOnly.substring(1, defsOnly.lastIndexOf('}'));
     }
-    if (defsOnly.contains(":package :org/stvnadore/chess")) {
+    if (defsOnly.contains(":package :gaming/chess")) {
       int lastBrace = defsOnly.lastIndexOf('}');
-      defsOnly = defsOnly.substring(0, lastBrace) + "  :use [ :org/stvnadore/chess { #strip } ]\n  }";
+      defsOnly = defsOnly.substring(0, lastBrace) + "  :use [ :gaming/chess { #strip } ]\n  }";
     }
     String docTurn1024 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g-overflow\" \"W\" \"B\" [ ( 1024 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
-    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docTurn1024, null, StvnParserConfig.SYSTEM_STRICT));
+    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docTurn1024, null, StvnParserConfig.STRICT));
   }
 
   @Test
@@ -138,13 +138,13 @@ public class ChessSerializationFuzzTest {
     if (defsOnly.startsWith("{")) {
       defsOnly = defsOnly.substring(1, defsOnly.lastIndexOf('}'));
     }
-    if (defsOnly.contains(":package :org/stvnadore/chess")) {
+    if (defsOnly.contains(":package :gaming/chess")) {
       int lastBrace = defsOnly.lastIndexOf('}');
-      defsOnly = defsOnly.substring(0, lastBrace) + "  :use [ :org/stvnadore/chess { #strip } ]\n  }";
+      defsOnly = defsOnly.substring(0, lastBrace) + "  :use [ :gaming/chess { #strip } ]\n  }";
     }
     String docHalfmove101 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g-halfmove\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 101 ) \"fen\" 0 ) ] #None\n  )\n}";
-    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docHalfmove101, null, StvnParserConfig.SYSTEM_STRICT));
+    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docHalfmove101, null, StvnParserConfig.STRICT));
   }
 
   private static GameHistory buildSmallGame() {

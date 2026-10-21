@@ -40,7 +40,7 @@ public class ChessBinaryCodec {
     
     // Compile dummy document with schema to extract ResolvedSchema
     String wrapperDoc = wrapSchemaWithDummyType(schemaSourceText);
-    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc, null, StvnParserConfig.SYSTEM_STRICT)
+    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc, null, StvnParserConfig.STRICT)
         .orElseThrow(() -> new IllegalStateException("Failed to compile schema definition"));
     
     this.resolvedSchema = sampleValue.schema();
@@ -90,7 +90,7 @@ public class ChessBinaryCodec {
    */
   public ByteBuffer encodeSchemaSelfDescribing() {
     String wrapperDoc = wrapSchemaWithDummyType(schemaSourceText);
-    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc, null, StvnParserConfig.SYSTEM_STRICT)
+    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc, null, StvnParserConfig.STRICT)
         .orElseThrow(() -> new IllegalStateException("Failed to compile schema definition"));
     var strategy = new SchemaIdentityStrategy.SelfDescribingSchema(wrapperDoc);
     var encoder = new StvnBinaryEncoder(true, strategy, true);
@@ -181,9 +181,9 @@ public class ChessBinaryCodec {
       }
     }
     String defsBlock = schemaContent.substring(defsIdx, closeBrace + 1);
-    if (defsBlock.contains(StvnVocabulary.KEYWORD_PACKAGE + " :org/stvnadore/chess")) {
+    if (defsBlock.contains(StvnVocabulary.KEYWORD_PACKAGE + " :gaming/chess")) {
       int lastBrace = defsBlock.lastIndexOf('}');
-      defsBlock = defsBlock.substring(0, lastBrace) + "  " + StvnVocabulary.KEYWORD_USE + " [ :org/stvnadore/chess { " + StvnVocabulary.FACET_KW_STRIP + " } ]\n  }";
+      defsBlock = defsBlock.substring(0, lastBrace) + "  " + StvnVocabulary.KEYWORD_USE + " [ :gaming/chess { " + StvnVocabulary.FACET_KW_STRIP + " } ]\n  }";
     }
     return "{\n  " + defsBlock + "\n  " + StvnVocabulary.KEYWORD_TYPE + " :GameHistory\n  " + StvnVocabulary.KEYWORD_BODY + " ( \"test\" \"white\" \"black\" [] " + StvnVocabulary.VAL_NONE + " )\n}";
   }

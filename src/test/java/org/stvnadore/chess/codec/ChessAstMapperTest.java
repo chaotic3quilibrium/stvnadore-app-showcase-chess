@@ -107,7 +107,7 @@ public class ChessAstMapperTest {
     String transposedSchema = """
         {
           :defs {
-            :package :org/stvnadore/chess {
+            :package :gaming/chess {
               :File             :Enum [ #A #B #C #D #E #F #G #H ]
               :Rank             { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int
               :Square           :Tuple( :File :Rank )
@@ -133,7 +133,7 @@ public class ChessAstMapperTest {
               :MatchResult      :Option( :TerminalOutcome )
               :GameHistory      :Tuple( :MatchId :WhitePlayer :BlackPlayer :Seq( :TurnState ) :MatchResult )
             }
-            :use [ :org/stvnadore/chess { #strip } ]
+            :use [ :gaming/chess { #strip } ]
           }
           :type :GameHistory
           :body (

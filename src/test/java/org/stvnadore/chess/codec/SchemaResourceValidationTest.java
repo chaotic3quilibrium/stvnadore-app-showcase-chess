@@ -35,7 +35,7 @@ public class SchemaResourceValidationTest {
 
   private static final String SCHEMAS_RESOURCE_DIR = "/schemas";
   private static final String KNOWN_CANONICAL_CAS_HASH =
-      "e22af026a73e41318ea0a58bb9de8b166c5980c6bd60272b1b4d0efe476b3cfc";
+      "817b682a4d142ca2b6dacc3ce2e9f1460e72fc4d3b8df65a9cc8944ec91f506e";
 
   /**
    * Discovers all packaged schema resource paths across the project.
@@ -99,7 +99,7 @@ public class SchemaResourceValidationTest {
 
     // 2. Strict Parse Tree Validation (ANTLR4 fail-fast BailErrorStrategy)
     StvnParser.StvnDocumentContext docCtx = assertDoesNotThrow(
-        () -> StvnCompiler.parse(content, StvnParserConfig.SYSTEM_STRICT),
+        () -> StvnCompiler.parse(content, StvnParserConfig.STRICT),
         "Schema " + filename + " must parse cleanly under strict parser configuration"
     );
     assertNotNull(docCtx, "Parse tree context must not be null for " + filename);
@@ -108,7 +108,7 @@ public class SchemaResourceValidationTest {
     var result = StvnCompiler.compileToResult(
         content,
         schemaPath.toAbsolutePath().toString(),
-        StvnParserConfig.SYSTEM_STRICT
+        StvnParserConfig.STRICT
     );
 
     if (result.hasErrors()) {
@@ -121,7 +121,7 @@ public class SchemaResourceValidationTest {
 
     // 4. Semantic Type Resolution & Zero-Shadowing Enforcement
     var diagnosticBag = new DiagnosticBag();
-    StvnTypeResolver.registerDocumentConfig(docCtx, StvnParserConfig.SYSTEM_STRICT);
+    StvnTypeResolver.registerDocumentConfig(docCtx, StvnParserConfig.STRICT);
     Map<String, ?> definitions = StvnTypeResolver.getDocumentDefinitions(docCtx, diagnosticBag);
     assertFalse(diagnosticBag.hasErrors(),
         () -> "Semantic diagnostics reported for " + filename + ": " + diagnosticBag.toList());
@@ -151,8 +151,8 @@ public class SchemaResourceValidationTest {
     String consumerDocument = """
         {
           :defs {
-            :include [ "chess_turn.stvn_d" ]
-            :use [ :org/stvnadore/chess { #strip } ]
+            :include [ "chess_turn.gaming.stvn_d" ]
+            :use [ :gaming/chess { #strip } ]
           }
           :type :GameHistory
           :body ( "import-test" "White" "Black" [] #None )
@@ -166,7 +166,7 @@ public class SchemaResourceValidationTest {
     var result = StvnCompiler.compileToResult(
         consumerDocument,
         virtualDocPath.toString(),
-        StvnParserConfig.SYSTEM_STRICT
+        StvnParserConfig.STRICT
     );
 
     assertFalse(result.hasErrors(), () -> {
@@ -203,21 +203,21 @@ public class SchemaResourceValidationTest {
     assertNotNull(flattened, "Flattened schema string must not be null");
 
     // Verify 5-tier ordering: Tier 1 (#unsigned) -> Tier 3 (#size / #minSize / #maxSize) -> Tier 4 (#minIncl / #maxExcl)
-    assertTrue(flattened.contains(":org/stvnadore/chess/Rank{#unsigned #size 4 #minIncl 1 #maxExcl 9}:Int"),
+    assertTrue(flattened.contains(":gaming/chess/Rank{#unsigned #size 4 #minIncl 1 #maxExcl 9}:Int"),
         "Rank must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
-    assertTrue(flattened.contains(":org/stvnadore/chess/HalfmovesSincePawnOrCapture{#unsigned #size 7 #maxExcl 101}:Int"),
+    assertTrue(flattened.contains(":gaming/chess/HalfmovesSincePawnOrCapture{#unsigned #size 7 #maxExcl 101}:Int"),
         "HalfmovesSincePawnOrCapture must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
-    assertTrue(flattened.contains(":org/stvnadore/chess/TurnNumber{#unsigned #size 10 #minIncl 1}:Int"),
+    assertTrue(flattened.contains(":gaming/chess/TurnNumber{#unsigned #size 10 #minIncl 1}:Int"),
         "TurnNumber must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
-    assertTrue(flattened.contains(":org/stvnadore/chess/CentipawnEvaluation{#size 16}:Int"),
+    assertTrue(flattened.contains(":gaming/chess/CentipawnEvaluation{#size 16}:Int"),
         "CentipawnEvaluation must declare bit-width in Tier 3");
-    assertTrue(flattened.contains(":org/stvnadore/chess/SanMoveString{#minSize 1 #maxSize 8}:String"),
+    assertTrue(flattened.contains(":gaming/chess/SanMoveString{#minSize 1 #maxSize 8}:String"),
         "SanMoveString must declare string bounds in Tier 3");
-    assertTrue(flattened.contains(":org/stvnadore/chess/FenStringFixed{#minSize 1 #maxSize 128}:String"),
+    assertTrue(flattened.contains(":gaming/chess/FenStringFixed{#minSize 1 #maxSize 128}:String"),
         "FenStringFixed must declare string bounds in Tier 3");
-    assertTrue(flattened.contains(":org/stvnadore/chess/MatchId{#minSize 1 #maxSize 64}:String"),
+    assertTrue(flattened.contains(":gaming/chess/MatchId{#minSize 1 #maxSize 64}:String"),
         "MatchId must declare string bounds in Tier 3");
-    assertTrue(flattened.contains(":org/stvnadore/chess/PlayerName{#minSize 1 #maxSize 64}:String"),
+    assertTrue(flattened.contains(":gaming/chess/PlayerName{#minSize 1 #maxSize 64}:String"),
         "PlayerName must declare string bounds in Tier 3");
   }
 }

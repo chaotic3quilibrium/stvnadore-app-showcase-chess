@@ -6,7 +6,7 @@
   }
   // @spec: STVN-SPEC-CHESS-01
   :defs {
-    :package :org/stvnadore/chess {
+    :package :gaming/chess {
       // --- Board Coordinates & Pieces ---
       :File             :Enum [ #A #B #C #D #E #F #G #H ]
       :Rank             { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int

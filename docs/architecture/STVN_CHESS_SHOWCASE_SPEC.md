@@ -40,7 +40,7 @@ The showcase integrates three ecosystem layers:
 
 ## 2. Domain-to-STVN Type Mapping Invariants (STVN 2.0.0 Standards)
 
-The chess domain schema (`src/main/resources/schemas/chess_turn.stvn_d`) defines all types in `:package :org/stvnadore/chess`. Under STVN 2.0.0, the schema conforms to strict scalar factorization, discrete half-open intervals, and string cardinality rules.
+The chess domain schema (`src/main/resources/schemas/chess_turn.gaming.stvn_d`) defines all types in `:package :gaming/chess`. Under STVN 2.0.0, the schema conforms to strict scalar factorization, discrete half-open intervals, and string cardinality rules.
 
 ```mermaid
 flowchart TD
@@ -186,7 +186,7 @@ Strategy `0x7` wire frames specify Byte 4 and the leading header slice as follow
 - **Bits 0–3 (`0x7`):** Strategy Identifier (`ExplicitSha256`).
 - **Bit 7 (`0x80`):** CRC-32C Trailer Sentinel (`1 = Present`). When combined with Strategy `0x7`, Byte 4 evaluates to `0x87`.
 - **Byte 5 (`0x00`):** `MetaControlByte` declaring payload identity without dynamic header metadata fields (`#BODY`).
-- **Bytes 6–37:** The 32-byte binary SHA-256 digest of the canonical `chess_turn.stvn_d` schema.
+- **Bytes 6–37:** The 32-byte binary SHA-256 digest of the canonical `chess_turn.gaming.stvn_d` schema (`817b682a4d142ca2b6dacc3ce2e9f1460e72fc4d3b8df65a9cc8944ec91f506e`).
 
 ### 4.2 Zero-Trust Verification Pipeline
 

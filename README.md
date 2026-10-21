@@ -109,7 +109,7 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
 
 ```stvn
 {
-  // chess_turn.stvn_d
+  // chess_turn.gaming.stvn_d
   :meta {
     #name "chess_turn"
     #domain "gaming"
@@ -117,7 +117,7 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
   }
 
   :defs {
-    :package :org/stvnadore/chess {
+    :package :gaming/chess {
       // --- Board Coordinates & Pieces ---
       :File             :Enum [ #A #B #C #D #E #F #G #H ]
       :Rank             { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int
@@ -412,7 +412,7 @@ Please email: <jim.oflaherty.jr+sacrml@gmail.com>, letting us know what license 
 - 2026.09.17
 - Synchronized build descriptor to `stvnadore-core:1.3.0`
 - Added `-Xlint:-processing` to javac arguments to suppress annotation processor warnings under `-Werror`
-- Modernized canonical schema `chess_turn.stvn_inclf`:
+- Modernized canonical schema `chess_turn.gaming.stvn_d`:
   - Enclosed definitions in package block `:package :org/stvnadore/chess { ... }`
   - Eliminated unbounded `:String` types in favor of bounded nominal types (`:FenStringFixed :String128`, `:SanMoveString :String8`, `:PlayerName :String64`, `:MatchId :String64`)
   - Guaranteed zero horizontal tab characters (`U+0009`) across schema definitions
@@ -432,7 +432,7 @@ Please email: <jim.oflaherty.jr+sacrml@gmail.com>, letting us know what license 
   - Atomic temporal primitives pruned to nominal prelude schemas
   - Package enclosures (`:package`) with automatic LHS FQNI expansion
   - Scoped `:use` with atomic unary `#strip` terminal slicing
-  - Hermetic flat payload tier (newly introduced `.stvn_f`) and flat schema tier (existing `.stvn_inclf`)
+  - Hermetic flat payload tier (`.stvn`) and canonical definitions schema tier (`.stvn_d`)
   - Arbitrary bit-width integer overflow enforcement (BigInteger)
   - Updated shared-fixtures conformance suite
 - Adapted schema resource validation to modular ANTLR4 `defsElement` parse tree productions

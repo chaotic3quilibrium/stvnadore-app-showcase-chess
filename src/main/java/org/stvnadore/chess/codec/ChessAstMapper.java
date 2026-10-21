@@ -37,9 +37,9 @@ public final class ChessAstMapper {
     Objects.requireNonNull(schemaContent, "schemaContent must not be null");
 
     String defsBlock = extractDefsBlock(schemaContent);
-    if (defsBlock.contains(StvnVocabulary.KEYWORD_PACKAGE + " :org/stvnadore/chess")) {
+    if (defsBlock.contains(StvnVocabulary.KEYWORD_PACKAGE + " :gaming/chess")) {
       int lastBrace = defsBlock.lastIndexOf('}');
-      defsBlock = defsBlock.substring(0, lastBrace) + "  " + StvnVocabulary.KEYWORD_USE + " [ :org/stvnadore/chess { " + StvnVocabulary.FACET_KW_STRIP + " } ]\n  }";
+      defsBlock = defsBlock.substring(0, lastBrace) + "  " + StvnVocabulary.KEYWORD_USE + " [ :gaming/chess { " + StvnVocabulary.FACET_KW_STRIP + " } ]\n  }";
     }
 
     StringBuilder sb = new StringBuilder();
@@ -95,7 +95,7 @@ public final class ChessAstMapper {
    */
   public static StvnValue toStvnAst(GameHistory game, String schemaContent) {
     String docText = toStvnDocument(game, schemaContent);
-    return StvnCompiler.compilePayload(docText, null, StvnParserConfig.SYSTEM_STRICT)
+    return StvnCompiler.compilePayload(docText, null, StvnParserConfig.STRICT)
         .orElseThrow(() -> new IllegalStateException("Failed to compile GameHistory into valid STVN AST"));
   }
 

@@ -148,29 +148,29 @@ public class ChessBinaryCodecTest {
     if (defsOnly.startsWith("{")) {
       defsOnly = defsOnly.substring(1, defsOnly.lastIndexOf('}'));
     }
-    if (defsOnly.contains(":package :org/stvnadore/chess")) {
+    if (defsOnly.contains(":package :gaming/chess")) {
       int lastBrace = defsOnly.lastIndexOf('}');
-      defsOnly = defsOnly.substring(0, lastBrace) + "  :use [ :org/stvnadore/chess { #strip } ]\n  }";
+      defsOnly = defsOnly.substring(0, lastBrace) + "  :use [ :gaming/chess { #strip } ]\n  }";
     }
 
     // 1. Halfmoves > 100
     String docHalfmoves101 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 2 ) ( #E 4 ) #None #FALSE 101 ) \"fen\" 0 ) ] #None\n  )\n}";
-    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docHalfmoves101, null, StvnParserConfig.SYSTEM_STRICT));
+    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docHalfmoves101, null, StvnParserConfig.STRICT));
 
     // 2. Promotion to #KING (impossible state under #filterExcl [ #PAWN #KING ])
     String docPromoKing = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 7 ) ( #E 8 ) #Some #KING #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
-    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docPromoKing, null, StvnParserConfig.SYSTEM_STRICT));
+    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docPromoKing, null, StvnParserConfig.STRICT));
 
     // 3. Promotion to #PAWN (impossible state under #filterExcl [ #PAWN #KING ])
     String docPromoPawn = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 7 ) ( #E 8 ) #Some #PAWN #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
-    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docPromoPawn, null, StvnParserConfig.SYSTEM_STRICT));
+    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docPromoPawn, null, StvnParserConfig.STRICT));
 
     // 4. Rank = 9 (out of 1..8 range)
     String docRank9 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 9 ) ( #E 4 ) #None #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
-    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docRank9, null, StvnParserConfig.SYSTEM_STRICT));
+    assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docRank9, null, StvnParserConfig.STRICT));
   }
 }
