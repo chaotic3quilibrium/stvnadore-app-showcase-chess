@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.stvnadore.chess.domain.*;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.binary.exceptions.PoisonedRegistryPayloadException;
 import org.stvnadore.core.binary.readers.StvnTupleReader;
 import org.stvnadore.core.validation.MalformedPayloadException;
@@ -71,17 +72,6 @@ public class ChessBinaryCodecTest {
   }
 
   @Test
-  @DisplayName("Isomorphic Strategy 0x7 round-trip for canonical Immortal Game (1851)")
-  void testImmortalGameRoundTrip() {
-    GameHistory immortal = org.stvnadore.chess.bench.ChessWireBenchmarker.getImmortalGame();
-    ByteBuffer buffer = codec.encode(immortal);
-    assertNotNull(buffer);
-    assertEquals((byte) 0x87, buffer.get(4), "Control byte must evaluate to 0x87");
-    GameHistory decoded = codec.decode(buffer);
-    assertEquals(immortal, decoded);
-  }
-
-  @Test
   @DisplayName("Isomorphic Strategy 0x7 round-trip for canonical Kasparov vs Deep Blue (1997)")
   void testKasparovDeepBlueRoundTrip() {
     GameHistory kasparov = org.stvnadore.chess.bench.ChessWireBenchmarker.getKasparovDeepBlueGame();
@@ -90,6 +80,17 @@ public class ChessBinaryCodecTest {
     assertEquals((byte) 0x87, buffer.get(4), "Control byte must evaluate to 0x87");
     GameHistory decoded = codec.decode(buffer);
     assertEquals(kasparov, decoded);
+  }
+
+  @Test
+  @DisplayName("Isomorphic Strategy 0x7 round-trip for canonical Immortal Game (1851)")
+  void testImmortalGameRoundTrip() {
+    GameHistory immortal = org.stvnadore.chess.bench.ChessWireBenchmarker.getImmortalGame();
+    ByteBuffer buffer = codec.encode(immortal);
+    assertNotNull(buffer);
+    assertEquals((byte) 0x87, buffer.get(4), "Control byte must evaluate to 0x87");
+    GameHistory decoded = codec.decode(buffer);
+    assertEquals(immortal, decoded);
   }
 
   @Test
@@ -144,14 +145,7 @@ public class ChessBinaryCodecTest {
   @Test
   @DisplayName("Negative schema constraints reject invalid bounds and illegal states")
   void testNegativeSchemaConstraints() {
-    String defsOnly = rawSchemaText.trim();
-    if (defsOnly.startsWith("{")) {
-      defsOnly = defsOnly.substring(1, defsOnly.lastIndexOf('}'));
-    }
-    if (defsOnly.contains(":package :gaming/chess")) {
-      int lastBrace = defsOnly.lastIndexOf('}');
-      defsOnly = defsOnly.substring(0, lastBrace) + "  :use [ :gaming/chess { #strip } ]\n  }";
-    }
+    String defsOnly = extractDefsBlockForTest(rawSchemaText);
 
     // 1. Halfmoves > 100
     String docHalfmoves101 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
@@ -172,5 +166,42 @@ public class ChessBinaryCodecTest {
     String docRank9 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
         "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 9 ) ( #E 4 ) #None #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
     assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(docRank9, null, StvnParserConfig.STRICT));
+  }
+
+  @Test
+  @DisplayName("Diagnostic Coordinate Pinning: Out-of-bounds coordinate pins exact token without delimiter cascades")
+  void testCoordinateDiagnosticPinning() {
+    String defsOnly = extractDefsBlockForTest(rawSchemaText);
+    String docRank9 = "{\n  " + defsOnly + "\n  :type :GameHistory\n  :body (\n" +
+        "    \"g1\" \"W\" \"B\" [ ( 1 #WHITE ( ( #E 9 ) ( #E 4 ) #None #FALSE 0 ) \"fen\" 0 ) ] #None\n  )\n}";
+
+    var ex = assertThrows(MalformedPayloadException.class,
+        () -> StvnCompiler.compilePayload(docRank9, null, StvnParserConfig.STRICT));
+
+    int rankOffset = docRank9.indexOf(" 9 )");
+    assertTrue(rankOffset > 0, "Offending token 9 must exist in document");
+    assertEquals(rankOffset + 1, ex.startOffset(), "Error startOffset must pin exactly to token '9'");
+    assertEquals(rankOffset + 2, ex.endOffset(), "Error endOffset must cover token length 1");
+  }
+
+  private static String extractDefsBlockForTest(String schemaContent) {
+    int defsIdx = schemaContent.indexOf(StvnVocabulary.KEYWORD_DEFS);
+    int openBrace = schemaContent.indexOf('{', defsIdx);
+    int depth = 0;
+    int closeBrace = -1;
+    for (int i = openBrace; i < schemaContent.length(); i++) {
+      char c = schemaContent.charAt(i);
+      if (c == '{') depth++;
+      else if (c == '}') {
+        depth--;
+        if (depth == 0) {
+          closeBrace = i;
+          break;
+        }
+      }
+    }
+    String defsBlock = schemaContent.substring(defsIdx, closeBrace + 1);
+    int lastBrace = defsBlock.lastIndexOf('}');
+    return defsBlock.substring(0, lastBrace) + "  " + StvnVocabulary.KEYWORD_USE + " [ :gaming/chess { " + StvnVocabulary.FACET_KW_STRIP + " } ]\n  }";
   }
 }

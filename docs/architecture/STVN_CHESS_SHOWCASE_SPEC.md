@@ -51,7 +51,7 @@ flowchart TD
     Sub["Domain Model Field"]:::domain --> Target{"Target STVN Type"}:::facet
 
     Target -- "Board Coordinates" --> C1["{ #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int"]:::stvn
-    Target -- "Clock & Halfmoves" --> C2["{ #unsigned #size 7 #minIncl 0 #maxExcl 101 } :Int"]:::stvn
+    Target -- "Clock & Halfmoves" --> C2["{ #unsigned #size 7 #maxExcl 101 } :Int"]:::stvn
     Target -- "Turn Sequence" --> C3["{ #unsigned #size 10 #minIncl 1 } :Int"]:::stvn
     Target -- "Evaluation Score" --> C4["{ #size 16 } :Int"]:::stvn
     Target -- "Text Identifiers" --> C5["{ #minSize 1 #maxSize <N> } :String"]:::stvn
@@ -87,7 +87,7 @@ Discrete numeric types reject closed upper bounds (`#maxIncl`) and open lower bo
    - Tracks plies since last capture or pawn move ($0 \le h \le 100$).
    - Formulated as a 7-bit unsigned integer with half-open bound $[0, 101)$:
    ```stvn
-   :HalfmovesSincePawnOrCapture { #unsigned #size 7 #minIncl 0 #maxExcl 101 } :Int
+   :HalfmovesSincePawnOrCapture { #unsigned #size 7 #maxExcl 101 } :Int
    ```
 2. **Turn Sequence Number (`:TurnNumber`):**
    - Tracks positive 1-based turn numbers ($t \ge 1$).

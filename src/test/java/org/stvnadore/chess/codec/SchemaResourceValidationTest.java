@@ -2,6 +2,11 @@ package org.stvnadore.chess.codec;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.stvnadore.chess.domain.GameHistory;
+import org.stvnadore.chess.domain.Move;
+import org.stvnadore.chess.domain.Piece;
+import org.stvnadore.chess.domain.Square;
+import org.stvnadore.chess.domain.TurnState;
 import org.stvnadore.core.StvnCompilationResult;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
@@ -14,6 +19,7 @@ import org.stvnadore.core.validation.StvnTypeResolver;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -23,6 +29,7 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -208,7 +215,7 @@ public class SchemaResourceValidationTest {
     assertTrue(flattened.contains(":gaming/chess/HalfmovesSincePawnOrCapture{#unsigned #size 7 #maxExcl 101}:Int"),
         "HalfmovesSincePawnOrCapture must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
     assertTrue(flattened.contains(":gaming/chess/SquareIndex{#unsigned #size 6}:Int"),
-        "SquareIndex must declare #unsigned #size 6 without redundant #maxExcl 64 under Rule E036");
+        "SquareIndex must declare #unsigned #size 6 without redundant #maxExcl 64 under Rule W003");
     assertTrue(flattened.contains(":gaming/chess/TurnNumber{#unsigned #size 10 #minIncl 1}:Int"),
         "TurnNumber must order facets: unsigned (Tier 1) -> size (Tier 3) -> intervals (Tier 4)");
     assertTrue(flattened.contains(":gaming/chess/CentipawnEvaluation{#size 16}:Int"),
@@ -221,5 +228,80 @@ public class SchemaResourceValidationTest {
         "MatchId must declare string bounds in Tier 3");
     assertTrue(flattened.contains(":gaming/chess/PlayerName{#minSize 1 #maxSize 64}:String"),
         "PlayerName must declare string bounds in Tier 3");
+  }
+
+  @Test
+  @DisplayName("W003 / Invariant 6: Tautological chess schemas compile with warning and yield bitwise-identical CAS hash")
+  void testTautologicalSchemaCasConvergence() throws Exception {
+    var resource = getClass().getResource("/schemas/chess_turn.gaming.stvn_d");
+    assertNotNull(resource, "Schema resource must exist");
+    String cleanSchema = Files.readString(Paths.get(resource.toURI()), StandardCharsets.UTF_8);
+
+    // Create tautological variant introducing redundant bounds on SquareIndex
+    String tautologicalSchema = cleanSchema.replace(
+        ":SquareIndex      { #unsigned #size 6 } :Int",
+        ":SquareIndex      { #unsigned #size 6 #minIncl 0 #maxExcl 64 } :Int"
+    );
+
+    // 1. Compile clean schema: zero warnings, zero errors
+    var cleanResult = StvnCompiler.compileToResult(cleanSchema, "chess_turn.gaming.stvn_d", StvnParserConfig.STRICT);
+    assertTrue(cleanResult.isSuccess(), "Clean schema must compile successfully");
+    assertFalse(cleanResult.hasWarnings(), () -> "Clean schema must not emit warnings: " + cleanResult.diagnostics());
+
+    // 2. Compile tautological schema: succeeds with W003 warnings
+    var tautResult = StvnCompiler.compileToResult(tautologicalSchema, "chess_turn.gaming.stvn_d", StvnParserConfig.DEFAULT);
+    assertTrue(tautResult.isSuccess(), "Tautological schema must compile successfully under W003");
+    assertFalse(tautResult.hasErrors(), "Tautological schema must have zero errors");
+    assertTrue(tautResult.hasWarnings(), "Tautological schema must report W003 warnings");
+    assertTrue(tautResult.diagnostics().stream().anyMatch(d ->
+        DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))));
+
+    // 3. Assert bitwise-identical CAS hashes across codecs
+    ChessBinaryCodec cleanCodec = new ChessBinaryCodec(cleanSchema);
+    ChessBinaryCodec tautCodec = new ChessBinaryCodec(tautologicalSchema);
+
+    assertEquals(KNOWN_CANONICAL_CAS_HASH, cleanCodec.getCasHashHex());
+    assertEquals(cleanCodec.getCasHashHex(), tautCodec.getCasHashHex(),
+        "CAS hashes must be bitwise identical under Invariant 6 (Nominal Bijectivity)");
+
+    // 4. Flatten preimages and assert bitwise identity under IR normalization
+    String flatClean = StvnSchemaFlattener.flatten(Map.of("chess_turn.gaming.stvn_d", cleanSchema), "chess_turn.gaming.stvn_d");
+    String flatTaut = StvnSchemaFlattener.flatten(Map.of("chess_turn.gaming.stvn_d", tautologicalSchema), "chess_turn.gaming.stvn_d");
+    assertEquals(flatClean, flatTaut, "Flattened preimages must be bitwise identical under IR normalization");
+
+    var md = java.security.MessageDigest.getInstance("SHA-256");
+    String hashClean = java.util.HexFormat.of().formatHex(md.digest(flatClean.getBytes(StandardCharsets.UTF_8)));
+    md.reset();
+    String hashTaut = java.util.HexFormat.of().formatHex(md.digest(flatTaut.getBytes(StandardCharsets.UTF_8)));
+    assertEquals(hashClean, hashTaut, "Repository CAS addresses of flattened preimages must be bitwise identical under Invariant 6");
+
+    // 5. Invariant 8 Wire Framing Parity: test cross-codec encode and decode
+    Move move = new Move(
+        Square.fromAlgebraic("e2"),
+        Square.fromAlgebraic("e4"),
+        Optional.empty(),
+        false,
+        0
+    );
+    TurnState turn = new TurnState(
+        1,
+        Piece.PieceColor.WHITE,
+        move,
+        "fen-cross-codec",
+        20
+    );
+    GameHistory game = new GameHistory("cross-codec-game", "W", "B", List.of(turn), Optional.empty());
+
+    ByteBuffer cleanBuf = cleanCodec.encode(game);
+    ByteBuffer tautBuf = tautCodec.encode(game);
+
+    assertArrayEquals(cleanBuf.array(), tautBuf.array(),
+        "Binary wire frames must be bitwise identical between clean and tautological schemas");
+
+    GameHistory decodedByTaut = tautCodec.decode(cleanBuf.duplicate());
+    assertEquals(game, decodedByTaut, "Tautological codec must decode payload encoded by clean codec");
+
+    GameHistory decodedByClean = cleanCodec.decode(tautBuf.duplicate());
+    assertEquals(game, decodedByClean, "Clean codec must decode payload encoded by tautological codec");
   }
 }

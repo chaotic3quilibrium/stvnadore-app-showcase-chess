@@ -77,8 +77,12 @@ public class ChessE2EIntegrationTest {
         hashHex = codec.getCasHashHex();
       }
 
-      inMemoryCasStorage.put(hashHex, bodyText);
+      inMemoryCasStorage.putIfAbsent(hashHex, bodyText);
       inMemoryRegistry.put(schemaName, hashHex);
+
+      if (bodyText != null && (bodyText.contains("#maxExcl 64") || bodyText.contains("#minIncl 0"))) {
+        ctx.header("X-STVN-Warnings-Count", "1");
+      }
 
       ctx.status(201).json(Map.of(
           "schemaName", schemaName,
@@ -115,6 +119,17 @@ public class ChessE2EIntegrationTest {
     assertNotNull(publishResult);
     assertEquals("chess-turn-schema", publishResult.schemaName());
     assertNotNull(publishResult.casHash());
+    assertEquals(0, publishResult.warningsCount());
+
+    // 1b. Publish Tautological Schema (Verifies W003 Header & Invariant 6 Parity)
+    String tautSchema = schemaContent.replace(
+        ":SquareIndex      { #unsigned #size 6 } :Int",
+        ":SquareIndex      { #unsigned #size 6 #maxExcl 64 } :Int"
+    );
+    PublishResultDto tautResult = client.publishSchema("chess-turn-taut", tautSchema);
+    assertNotNull(tautResult);
+    assertEquals(1, tautResult.warningsCount(), "Tautological publication must report warning header");
+    assertEquals(publishResult.casHash(), tautResult.casHash(), "CAS hash must converge under Invariant 6");
 
     // 2. Fetch Schema by CAS Hash
     ChessBinaryCodec localCodec = new ChessBinaryCodec(schemaContent);

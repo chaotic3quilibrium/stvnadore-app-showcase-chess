@@ -104,7 +104,9 @@ public class ChessSchemaRegistryClient {
           "'. HTTP status: " + response.statusCode() + ", body: " + response.body());
     }
 
-    return OBJECT_MAPPER.readValue(response.body(), PublishResultDto.class);
+    int warningsCount = extractWarningsCount(response);
+    PublishResultDto parsed = OBJECT_MAPPER.readValue(response.body(), PublishResultDto.class);
+    return warningsCount > 0 ? new PublishResultDto(parsed.schemaName(), parsed.shapeSignature(), parsed.casHash(), warningsCount) : parsed;
   }
 
   /**
@@ -135,6 +137,21 @@ public class ChessSchemaRegistryClient {
           "'. HTTP status: " + response.statusCode() + ", body: " + response.body());
     }
 
-    return OBJECT_MAPPER.readValue(response.body(), PublishResultDto.class);
+    int warningsCount = extractWarningsCount(response);
+    PublishResultDto parsed = OBJECT_MAPPER.readValue(response.body(), PublishResultDto.class);
+    return warningsCount > 0 ? new PublishResultDto(parsed.schemaName(), parsed.shapeSignature(), parsed.casHash(), warningsCount) : parsed;
+  }
+
+  private static int extractWarningsCount(HttpResponse<?> response) {
+    return response.headers()
+        .firstValue("X-STVN-Warnings-Count")
+        .map(val -> {
+          try {
+            return Integer.parseInt(val.trim());
+          } catch (NumberFormatException e) {
+            return 0;
+          }
+        })
+        .orElse(0);
   }
 }

@@ -28,6 +28,9 @@ public class ChessSchemaRegistryClientTest {
         ctx.status(415).json(Map.of("error", "Unsupported Media Type"));
         return;
       }
+      if (ctx.body().contains("#maxExcl 64")) {
+        ctx.header("X-STVN-Warnings-Count", "1");
+      }
       ctx.status(201).json(Map.of(
           "schemaName", ctx.pathParam("name"),
           "shapeSignature", "test-signature",
@@ -59,6 +62,13 @@ public class ChessSchemaRegistryClientTest {
     PublishResultDto publishResult = client.publishSchema("test-schema", SCHEMA_BODY);
     assertEquals("test-schema", publishResult.schemaName());
     assertEquals(CAS_HASH, publishResult.casHash());
+    assertEquals(0, publishResult.warningsCount(), "Clean schema must report 0 warnings");
+
+    String tautologicalBody = "{\n  :defs {\n    :SquareIndex { #unsigned #size 6 #maxExcl 64 } :Int\n  }\n}";
+    PublishResultDto tautResult = client.publishSchema("taut-schema", tautologicalBody);
+    assertEquals("taut-schema", tautResult.schemaName());
+    assertEquals(CAS_HASH, tautResult.casHash());
+    assertEquals(1, tautResult.warningsCount(), "Tautological schema must report 1 warning from header");
 
     String fetched = client.fetchSchemaByCasHash(CAS_HASH);
     assertEquals(SCHEMA_BODY, fetched);
