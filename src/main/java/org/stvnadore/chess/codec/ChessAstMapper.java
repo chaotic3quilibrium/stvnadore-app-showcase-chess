@@ -1,14 +1,20 @@
 package org.stvnadore.chess.codec;
 
+import org.jspecify.annotations.Nullable;
 import org.stvnadore.chess.domain.GameHistory;
 import org.stvnadore.chess.domain.Move;
 import org.stvnadore.chess.domain.Piece;
 import org.stvnadore.chess.domain.Square;
 import org.stvnadore.chess.domain.TurnState;
+import org.stvnadore.core.StvnCompilationResult;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.ir.StvnDefsCatalog;
+import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.mapper.StvnMapper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,102 +23,91 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Lossless bidirectional mapper between GameHistory domain records and STVN AST representations.
+ * Lossless bidirectional mapper between {@link GameHistory} domain records and pure-IR {@link StvnValue} trees.
  */
 public final class ChessAstMapper {
+
+  private static final String GAME_HISTORY_FQNI =
+      StvnVocabulary.SIGIL_TYPIC + "gaming/chess/GameHistory";
 
   private ChessAstMapper() {
     // Utility class
   }
 
   /**
-   * Serializes a GameHistory record into a valid STVN document body string.
+   * Serializes a {@link GameHistory} record into a canonical, self-contained STVN 2.0.0 document string.
    *
    * @param game the game history to format
-   * @param schemaContent raw schema definition containing :defs
-   * @return complete STVN document text
+   * @param schemaContent raw schema definition containing {@code :defs}
+   * @return complete canonical STVN document text
    */
   public static String toStvnDocument(GameHistory game, String schemaContent) {
     Objects.requireNonNull(game, "game must not be null");
     Objects.requireNonNull(schemaContent, "schemaContent must not be null");
 
-    String defsBlock = extractDefsBlock(schemaContent);
-    if (defsBlock.contains(StvnVocabulary.KEYWORD_PACKAGE + " :gaming/chess")) {
-      int lastBrace = defsBlock.lastIndexOf('}');
-      defsBlock = defsBlock.substring(0, lastBrace) + "  " + StvnVocabulary.KEYWORD_USE + " [ :gaming/chess { " + StvnVocabulary.FACET_KW_STRIP + " } ]\n  }";
-    }
-
-    StringBuilder sb = new StringBuilder();
-    sb.append("{\n");
-    sb.append(defsBlock).append("\n\n");
-    sb.append("  ").append(StvnVocabulary.KEYWORD_TYPE).append(" :GameHistory\n");
-    sb.append("  ").append(StvnVocabulary.KEYWORD_BODY).append(" (\n");
-    sb.append("    \"").append(escape(game.gameId())).append("\"\n");
-    sb.append("    \"").append(escape(game.whitePlayer())).append("\"\n");
-    sb.append("    \"").append(escape(game.blackPlayer())).append("\"\n");
-    sb.append("    [\n");
-
-    for (TurnState turn : game.turns()) {
-      sb.append("      (\n");
-      sb.append("        ").append(turn.turnNumber()).append("\n");
-      sb.append("        ").append(StvnVocabulary.SIGIL_VALUE).append(turn.activeColor().name()).append("\n");
-      sb.append("        (\n");
-      sb.append("          ( ").append(StvnVocabulary.SIGIL_VALUE).append(turn.move().from().file().name()).append(" ").append(turn.move().from().rank()).append(" )\n");
-      sb.append("          ( ").append(StvnVocabulary.SIGIL_VALUE).append(turn.move().to().file().name()).append(" ").append(turn.move().to().rank()).append(" )\n");
-      if (turn.move().promotion().isPresent()) {
-        sb.append("          ").append(StvnVocabulary.VAL_SOME).append(" ").append(StvnVocabulary.SIGIL_VALUE).append(turn.move().promotion().get().name()).append("\n");
-      } else {
-        sb.append("          ").append(StvnVocabulary.VAL_NONE).append("\n");
-      }
-      sb.append("          ").append(turn.move().isCapture() ? StvnVocabulary.VAL_TRUE : StvnVocabulary.VAL_FALSE).append("\n");
-      sb.append("          ").append(turn.move().halfmovesSincePawnOrCapture()).append("\n");
-      sb.append("        )\n");
-      sb.append("        \"").append(escape(turn.fen())).append("\"\n");
-      sb.append("        ").append(turn.evaluationCentipawns()).append("\n");
-      sb.append("      )\n");
-    }
-
-    sb.append("    ]\n");
-
-    if (game.result().isPresent()) {
-      sb.append("    ").append(StvnVocabulary.VAL_SOME).append(" ").append(StvnVocabulary.SIGIL_VALUE).append(game.result().get().name()).append("\n");
-    } else {
-      sb.append("    ").append(StvnVocabulary.VAL_NONE).append("\n");
-    }
-
-    sb.append("  )\n");
-    sb.append("}\n");
-
-    return sb.toString();
+    StvnDocument schemaDoc = compileSchemaDocument(schemaContent);
+    StvnSchema gameHistorySchema = resolveGameHistorySchema(schemaDoc.defs());
+    StvnValue rootValue = toStvnValue(game, gameHistorySchema);
+    StvnDocument payloadDoc = new StvnDocument(
+        Optional.empty(),
+        schemaDoc.defs(),
+        Optional.of(gameHistorySchema),
+        Optional.of(rootValue),
+        true,
+        false
+    );
+    return StvnCompiler.toCanonicalString(payloadDoc);
   }
 
   /**
-   * Compiles a GameHistory record directly into a validated StvnValue AST.
+   * Maps a {@link GameHistory} record directly into a validated pure-IR {@link StvnValue} tree.
    *
    * @param game the game history to format
-   * @param schemaContent raw schema definition containing :defs
-   * @return compiled StvnValue AST
+   * @param schemaContent raw schema definition containing {@code :defs}
+   * @return pure-IR {@link StvnValue} root node
    */
   public static StvnValue toStvnAst(GameHistory game, String schemaContent) {
-    String docText = toStvnDocument(game, schemaContent);
-    return StvnCompiler.compilePayload(docText, null, StvnParserConfig.STRICT)
-        .orElseThrow(() -> new IllegalStateException("Failed to compile GameHistory into valid STVN AST"));
+    Objects.requireNonNull(game, "game must not be null");
+    Objects.requireNonNull(schemaContent, "schemaContent must not be null");
+
+    StvnDocument schemaDoc = compileSchemaDocument(schemaContent);
+    return toStvnValue(game, schemaDoc.defs());
   }
 
   /**
-   * Decodes an unpacked StvnValue AST back into an immutable GameHistory domain record.
+   * Maps a {@link GameHistory} record directly into a pure-IR {@link StvnValue} using a pre-compiled catalog.
    *
-   * @param ast unpacked root StvnValue AST
-   * @return domain GameHistory instance
+   * @param game the game history domain record
+   * @param defsCatalog pre-compiled definitions catalog containing {@code :gaming/chess/GameHistory}
+   * @return pure-IR {@link StvnValue} root node
+   */
+  public static StvnValue toStvnValue(GameHistory game, StvnDefsCatalog defsCatalog) {
+    Objects.requireNonNull(game, "game must not be null");
+    Objects.requireNonNull(defsCatalog, "defsCatalog must not be null");
+
+    StvnSchema gameHistorySchema = resolveGameHistorySchema(defsCatalog);
+    return toStvnValue(game, gameHistorySchema);
+  }
+
+  static StvnValue toStvnValue(GameHistory game, StvnSchema gameHistorySchema) {
+    return StvnMapper.toValue(game, Optional.of(gameHistorySchema))
+        .orElseThrow(() -> new IllegalStateException("Failed to map GameHistory into pure-IR StvnValue"));
+  }
+
+  /**
+   * Decodes an unpacked pure-IR {@link StvnValue} back into an immutable {@link GameHistory} domain record.
+   *
+   * @param ast unpacked root {@link StvnValue} node
+   * @return domain {@link GameHistory} instance
    */
   public static GameHistory fromStvnAst(StvnValue ast) {
     Objects.requireNonNull(ast, "ast must not be null");
     assertNominalSchema(ast, "GameHistory", "root");
     StvnValue.StvnTuple rootTuple = assertTuple(ast, 5, "root");
 
-    String gameId = unescape(assertString(rootTuple.elements().get(0), "root.gameId").value());
-    String whitePlayer = unescape(assertString(rootTuple.elements().get(1), "root.whitePlayer").value());
-    String blackPlayer = unescape(assertString(rootTuple.elements().get(2), "root.blackPlayer").value());
+    String gameId = assertString(rootTuple.elements().get(0), "root.gameId").value();
+    String whitePlayer = assertString(rootTuple.elements().get(1), "root.whitePlayer").value();
+    String blackPlayer = assertString(rootTuple.elements().get(2), "root.blackPlayer").value();
 
     StvnValue.StvnSeq turnsSeq = assertSeq(rootTuple.elements().get(3), "root.turns");
     List<TurnState> turns = new ArrayList<>();
@@ -123,8 +118,9 @@ public final class ChessAstMapper {
       assertNominalSchema(turnVal, "TurnState", turnPath);
       StvnValue.StvnTuple turnTuple = assertTuple(turnVal, 5, turnPath);
 
-      long turnNumber = assertInteger(turnTuple.elements().get(0), turnPath + ".turnNumber").value().longValue();
-      String colorStr = stripHash(assertEnum(turnTuple.elements().get(1), turnPath + ".color").keyword());
+      long turnNumber =
+          assertInt(turnTuple.elements().get(0), turnPath + ".turnNumber").value().longValueExact();
+      String colorStr = stripHash(assertEnum(turnTuple.elements().get(1), turnPath + ".color").variantTag());
       Piece.PieceColor activeColor = Piece.PieceColor.valueOf(colorStr.toUpperCase(Locale.ROOT));
 
       StvnValue moveVal = turnTuple.elements().get(2);
@@ -138,15 +134,16 @@ public final class ChessAstMapper {
       StvnValue.StvnOption promoOpt = assertOption(moveTuple.elements().get(2), movePath + ".promotion");
       Optional<Move.PromotionRole> promo = promoOpt.value().map(v -> {
         StvnValue.StvnEnum promoEnum = assertEnum(v, movePath + ".promotion.role");
-        return Move.PromotionRole.valueOf(stripHash(promoEnum.keyword()).toUpperCase(Locale.ROOT));
+        return Move.PromotionRole.valueOf(stripHash(promoEnum.variantTag()).toUpperCase(Locale.ROOT));
       });
 
       boolean isCapture = assertBoolean(moveTuple.elements().get(3), movePath + ".isCapture").value();
-      int halfmoves = assertInteger(moveTuple.elements().get(4), movePath + ".halfmoves").value().intValue();
+      int halfmoves =
+          assertInt(moveTuple.elements().get(4), movePath + ".halfmoves").value().intValueExact();
 
       Move move = new Move(from, to, promo, isCapture, halfmoves);
-      String fen = unescape(assertString(turnTuple.elements().get(3), turnPath + ".fen").value());
-      int turnEval = assertInteger(turnTuple.elements().get(4), turnPath + ".eval").value().intValue();
+      String fen = assertString(turnTuple.elements().get(3), turnPath + ".fen").value();
+      int turnEval = assertInt(turnTuple.elements().get(4), turnPath + ".eval").value().intValueExact();
 
       turns.add(new TurnState(turnNumber, activeColor, move, fen, turnEval));
     }
@@ -154,7 +151,7 @@ public final class ChessAstMapper {
     StvnValue.StvnOption resultOpt = assertOption(rootTuple.elements().get(4), "root.result");
     Optional<GameHistory.TerminalOutcome> result = resultOpt.value().map(v -> {
       StvnValue.StvnEnum resultEnum = assertEnum(v, "root.result.outcome");
-      return GameHistory.TerminalOutcome.valueOf(stripHash(resultEnum.keyword()).toUpperCase(Locale.ROOT));
+      return GameHistory.TerminalOutcome.valueOf(stripHash(resultEnum.variantTag()).toUpperCase(Locale.ROOT));
     });
 
     return new GameHistory(gameId, whitePlayer, blackPlayer, turns, result);
@@ -163,22 +160,45 @@ public final class ChessAstMapper {
   private static Square mapSquare(StvnValue squareVal, String path) {
     assertNominalSchema(squareVal, "Square", path);
     StvnValue.StvnTuple squareTuple = assertTuple(squareVal, 2, path);
-    String fileStr = stripHash(assertEnum(squareTuple.elements().get(0), path + ".file").keyword());
+    String fileStr = stripHash(assertEnum(squareTuple.elements().get(0), path + ".file").variantTag());
     Square.File file = Square.File.valueOf(fileStr.toUpperCase(Locale.ROOT));
-    int rank = assertInteger(squareTuple.elements().get(1), path + ".rank").value().intValue();
+    int rank = assertInt(squareTuple.elements().get(1), path + ".rank").value().intValueExact();
     return new Square(file, rank);
   }
 
+  static StvnDocument compileSchemaDocument(String schemaContent) {
+    StvnCompilationResult<StvnDocument> compiled =
+        StvnCompiler.compile(schemaContent, null, StvnParserConfig.STRICT);
+    if (compiled.hasErrors() || compiled.document().isEmpty()) {
+      String reason = compiled.diagnostics().isEmpty()
+          ? "No StvnDocument produced"
+          : compiled.diagnostics().getFirst().message();
+      throw new IllegalArgumentException("Failed to compile chess schema definition: " + reason);
+    }
+    return compiled.document().get();
+  }
+
+  static StvnSchema resolveGameHistorySchema(StvnDefsCatalog defsCatalog) {
+    return defsCatalog.findType(GAME_HISTORY_FQNI)
+        .or(() -> defsCatalog.findType(StvnVocabulary.SIGIL_TYPIC + "GameHistory"))
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Schema catalog does not define " + GAME_HISTORY_FQNI));
+  }
+
   private static void assertNominalSchema(StvnValue node, String expectedSuffix, String path) {
-    String alias = node.schema().aliasName().orElse(null);
-    if (alias == null || (!alias.equals(StvnVocabulary.SIGIL_TYPIC + expectedSuffix) && !alias.endsWith("/" + expectedSuffix))) {
+    @Nullable String alias = node.schema().aliasName().orElse(null);
+    if (alias == null
+        || (!alias.equals(StvnVocabulary.SIGIL_TYPIC + expectedSuffix)
+            && !alias.endsWith("/" + expectedSuffix))) {
       throw new NominalSchemaMismatchException(StvnVocabulary.SIGIL_TYPIC + expectedSuffix, alias, path, node);
     }
   }
 
   private static StvnValue.StvnTuple assertTuple(StvnValue node, int size, String path) {
     if (!(node instanceof StvnValue.StvnTuple t) || t.elements().size() != size) {
-      String actual = node instanceof StvnValue.StvnTuple t2 ? "Tuple of arity " + t2.elements().size() : node.getClass().getSimpleName();
+      String actual = node instanceof StvnValue.StvnTuple t2
+          ? "Tuple of arity " + t2.elements().size()
+          : node.getClass().getSimpleName();
       throw new NominalSchemaMismatchException("Tuple of arity " + size, actual, path, node);
     }
     return t;
@@ -191,8 +211,8 @@ public final class ChessAstMapper {
     return s;
   }
 
-  private static StvnValue.StvnInteger assertInteger(StvnValue node, String path) {
-    if (!(node instanceof StvnValue.StvnInteger i)) {
+  private static StvnValue.StvnInt assertInt(StvnValue node, String path) {
+    if (!(node instanceof StvnValue.StvnInt i)) {
       throw new NominalSchemaMismatchException(StvnVocabulary.TYPE_INT, node.getClass().getSimpleName(), path, node);
     }
     return i;
@@ -226,85 +246,10 @@ public final class ChessAstMapper {
     return b;
   }
 
-  private static String extractDefsBlock(String schemaContent) {
-    int defsIdx = schemaContent.indexOf(StvnVocabulary.KEYWORD_DEFS);
-    if (defsIdx == -1) {
-      throw new IllegalArgumentException("Schema does not contain " + StvnVocabulary.KEYWORD_DEFS + " block: " + schemaContent);
+  private static String stripHash(@Nullable String s) {
+    if (s == null) {
+      return "";
     }
-    int openBrace = schemaContent.indexOf('{', defsIdx);
-    if (openBrace == -1) {
-      throw new IllegalArgumentException("Invalid " + StvnVocabulary.KEYWORD_DEFS + " structure in schema");
-    }
-    int closeBrace = findMatchingBrace(schemaContent, openBrace);
-    return "  " + schemaContent.substring(defsIdx, closeBrace + 1);
-  }
-
-  private static int findMatchingBrace(String text, int openIndex) {
-    int depth = 0;
-    for (int i = openIndex; i < text.length(); i++) {
-      char c = text.charAt(i);
-      if (c == '{') depth++;
-      else if (c == '}') {
-        depth--;
-        if (depth == 0) return i;
-      }
-    }
-    return text.length() - 1;
-  }
-
-  /**
-   * Sanitizes strings against quotes, backslashes, and control characters.
-   *
-   * @param s raw input string
-   * @return escaped string safe for STVN string literals
-   */
-  public static String escape(String s) {
-    if (s == null) return "";
-    StringBuilder sb = new StringBuilder(s.length() + 8);
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      switch (c) {
-        case '\\' -> sb.append("\\\\");
-        case '"' -> sb.append("\\\"");
-        case '\n' -> sb.append("\\n");
-        case '\r' -> sb.append("\\r");
-        case '\t' -> sb.append("\\t");
-        default -> sb.append(c);
-      }
-    }
-    return sb.toString();
-  }
-
-  /**
-   * Unescapes sanitized STVN string literal tokens back to original string values.
-   *
-   * @param s escaped STVN string token
-   * @return unescaped string
-   */
-  public static String unescape(String s) {
-    if (s == null || s.indexOf('\\') == -1) return s != null ? s : "";
-    StringBuilder sb = new StringBuilder(s.length());
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      if (c == '\\' && i + 1 < s.length()) {
-        char next = s.charAt(i + 1);
-        switch (next) {
-          case '\\' -> { sb.append('\\'); i++; }
-          case '"' -> { sb.append('"'); i++; }
-          case 'n' -> { sb.append('\n'); i++; }
-          case 'r' -> { sb.append('\r'); i++; }
-          case 't' -> { sb.append('\t'); i++; }
-          default -> sb.append(c);
-        }
-      } else {
-        sb.append(c);
-      }
-    }
-    return sb.toString();
-  }
-
-  private static String stripHash(String s) {
-    if (s == null) return "";
     return s.startsWith(StvnVocabulary.SIGIL_VALUE) ? s.substring(1) : s;
   }
 }

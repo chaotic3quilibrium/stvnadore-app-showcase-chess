@@ -6,11 +6,11 @@
 [![STVN Core](https://img.shields.io/badge/STVN%20Core-2.0.0--SNAPSHOT-orange.svg)](https://github.com/chaotic3quilibrium/stvnadore-core)
 [![Zero-Trust](https://img.shields.io/badge/Zero--Trust-Strategy%200x87%20CRC32C-success.svg)]()
 
-Production reference application demonstrating STVN binary encoding, zero-trust schema validation, CRC-32C trailer framing, FIDE-compliant chess rule evaluation, wire format efficiency benchmarking, and an interactive terminal visualizer.
+Production reference application demonstrating STVN 2.0.0 pure-IR domain mapping, binary encoding, zero-trust schema validation, CRC-32C trailer framing, FIDE-compliant chess rule evaluation, wire format efficiency benchmarking, and an interactive terminal visualizer.
 
 ---
 
-- Version: 2.0.0-SNAPSHOT - 2026.10.10
+- Version: 2.0.0-SNAPSHOT - 2026.10.31
 
 ---
 
@@ -41,41 +41,36 @@ Production reference application demonstrating STVN binary encoding, zero-trust 
     * [FYI, I'd prefer to move stvnadore-app-showcase-chess to an Apache 2.0 license](#fyi-id-prefer-to-move-stvnadore-app-showcase-chess-to-an-apache-20-license)
     * [I'm not looking to win the lottery, I just don't want to work for free](#im-not-looking-to-win-the-lottery-i-just-dont-want-to-work-for-free)
 * [Version History](#version-history)
-  * [v1.3.1](#v131)
-  * [v1.3.0](#v130)
-  * [v1.2.0](#v120)
-  * [v1.1.1](#v111)
-  * [v1.1.0](#v110)
-  * [v1.0.2](#v102)
+  * [v2.0.0-SNAPSHOT](#v200-snapshot)
 <!-- TOC -->
 
 ---
 
 ## Architecture Overview
 
-The system is organized into modular layers enforcing a strict separation of concerns across domain modeling, chess rules, binary serialization, benchmarking, and interactive CLI presentation:
+The system is organized into modular layers enforcing a strict separation of concerns across domain modeling, chess rules, pure-IR binary serialization, benchmarking, and interactive CLI presentation:
 
 ```mermaid
 flowchart TD
-    subgraph CLI ["CLI Layer (org.stvnadore.chess.cli)"]
-        CliApp["ChessCliApplication\n(POSIX 0, 1, 2, 3 Exit Codes)"]
-        Renderer["AsciiBoardRenderer\n(Unicode & Plain ASCII Grids)"]
+    subgraph CLI["CLI Layer (org.stvnadore.chess.cli)"]
+        CliApp["ChessCliApplication (POSIX 0, 1, 2, 3 Exit Codes)"]
+        Renderer["AsciiBoardRenderer (Unicode and Plain ASCII Grids)"]
     end
 
-    subgraph Engine ["Engine Layer (org.stvnadore.chess.engine)"]
+    subgraph Engine["Engine Layer (org.stvnadore.chess.engine)"]
         MGen["MoveGenerator"]
         MVal["MoveValidator"]
-        TDet["TerminalDetector\n(Checkmate, Stalemate, 50-Move, Insufficient)"]
+        TDet["TerminalDetector (Checkmate, Stalemate, 50-Move, Insufficient)"]
         Fen["FenCodec"]
-        Pgn["PgnParser\n(Zero-Dependency SAN Parser)"]
+        Pgn["PgnParser (Zero-Dependency SAN Parser)"]
     end
 
-    subgraph Codec ["Codec Layer (org.stvnadore.chess.codec)"]
-        BinCodec["ChessBinaryCodec\n(Strategy 0x07 ExplicitSha256)"]
-        AstMapper["ChessAstMapper\n(Bidirectional STVN AST Converter)"]
+    subgraph Codec["Codec Layer (org.stvnadore.chess.codec)"]
+        BinCodec["ChessBinaryCodec (Strategy 0x07 and 0x08 Pure-IR Codec)"]
+        AstMapper["ChessAstMapper (Pure-IR StvnMapper Domain Converter)"]
     end
 
-    subgraph Domain ["Domain Layer (org.stvnadore.chess.domain)"]
+    subgraph Domain["Domain Layer (org.stvnadore.chess.domain)"]
         GH["GameHistory"]
         TS["TurnState"]
         BS["BoardState"]
@@ -84,7 +79,7 @@ flowchart TD
         PC["Piece"]
     end
 
-    subgraph Bench ["Benchmarking Layer (org.stvnadore.chess.bench)"]
+    subgraph Bench["Benchmarking Layer (org.stvnadore.chess.bench)"]
         Benchmarker["ChessWireBenchmarker"]
         FlatCodec["FlatBinaryCodec"]
         BenchRes["BenchmarkResult"]
@@ -122,6 +117,8 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
       :File             :Enum [ #A #B #C #D #E #F #G #H ]
       :Rank             { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int
       :Square           :Tuple( :File :Rank )
+      :AlgebraicSquare  { #regex "^[a-h][1-8]$" } :String
+      :SquareIndex      { #unsigned #size 6 } :Int
 
       :Color            :Enum [ #WHITE #BLACK ]
       :PieceRole        :Enum [ #PAWN #KNIGHT #BISHOP #ROOK #QUEEN #KING ]
@@ -131,7 +128,7 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
       :PromotionRole    { #filterExcl [ #PAWN #KING ] } :PieceRole
       :PromotionOption  :Option( :PromotionRole )
       :IsCapture        :Boolean
-      :HalfmovesSincePawnOrCapture { #unsigned #size 7 #minIncl 0 #maxExcl 101 } :Int
+      :HalfmovesSincePawnOrCapture { #unsigned #size 7 #maxExcl 101 } :Int
       :SanMoveString    { #minSize 1 #maxSize 8 } :String
       :Move             :Tuple( :Square :Square :PromotionOption :IsCapture :HalfmovesSincePawnOrCapture )
 
@@ -157,22 +154,24 @@ The canonical schema definition is located at `src/main/resources/schemas/chess_
 
 ### Bit-Width Allocation Rationale
 
-| Type Name                      | STVN Type                                                | Valid Range                         | Wire Bits | Engineering Rationale                                                                                                                                                                                                                                    |
-|:-------------------------------|:---------------------------------------------------------|:------------------------------------|:----------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `:Rank`                        | `{ #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int`       | $1 \dots 8$ ($[1, 9)$)              | 4 bits    | Standard chessboard ranks span 1 to 8. A 4-bit unsigned integer supports 16 states ($0 \dots 15$), tightly containing 8 ranks within a half-open discrete interval $[1, 9)$.                                                                             |
-| `:HalfmovesSincePawnOrCapture` | `{ #unsigned #size 7 #minIncl 0 #maxExcl 101 } :Int`     | $0 \dots 100$ ($[0, 101)$)          | 7 bits    | FIDE Article 9.3 (50-move rule) triggers after 50 full moves (100 plies) without pawn move or capture. A 7-bit unsigned integer ($0 \dots 127$) precisely bounds the 100-ply limit within a half-open discrete interval $[0, 101)$.                     |
-| `:TurnNumber`                  | `{ #unsigned #size 10 #minIncl 1 } :Int`                 | $1 \dots 1023$                      | 10 bits   | Classical chess matches average 40–80 plies; the longest historical tournament match was 538 plies (Nikolić vs. Arsović, 1989). 10-bit unsigned integer ($0 \dots 1023$) provides 1.9x safety margin over the longest historical game.                    |
-| `:CentipawnEvaluation`         | `{ #size 16 } :Int`                                      | $-32,768 \dots 32,767$              | 16 bits   | Engine evaluations are expressed in centipawns ($100 = 1.0\text{ pawn}$). Positional advantages range between $\pm 1,500$; mate scores use sentinels ($\pm 10,000$). Factorized 16-bit signed integer covers all evaluations without allocating 32 bits. |
-| `:File`                        | `:Enum [8]`                                              | `#A` to `#H`                        | 3 bits    | 8 board files fit within a 3-bit discriminant.                                                                                                                                                                                                           |
-| `:Color`                       | `:Enum [2]`                                              | `#WHITE`, `#BLACK`                  | 1 bit     | 2 player colors fit in a single bit.                                                                                                                                                                                                                     |
-| `:PieceRole`                   | `:Enum [6]`                                              | `#PAWN` to `#KING`                  | 3 bits    | 6 piece roles fit in a 3-bit discriminant.                                                                                                                                                                                                               |
-| `:PromotionRole`               | `PieceRole` (Subset)                                     | `#KNIGHT` to `#QUEEN`               | 3 bits    | Nominal subset filtering (`#filterExcl [ #PAWN #KING ]`) excludes pawn and king, preserving root ordinals.                                                                                                                                               |
-| `:IsCapture`                   | `:Boolean`                                               | `#TRUE`, `#FALSE`                   | 1 bit     | Binary capture flag.                                                                                                                                                                                                                                     |
-| `:TerminalOutcome`             | `:Enum [3]`                                              | `#WHITE_WIN`, `#BLACK_WIN`, `#DRAW` | 2 bits    | 3 terminal outcome variants fit in 2 bits.                                                                                                                                                                                                               |
-| `:SanMoveString`               | `{ #minSize 1 #maxSize 8 } :String`                      | $1 \dots 8$ chars                   | Variable  | SAN moves require at most 7 characters (e.g., `exd8=Q#`). Bounded to 8 characters to prevent unbounded memory allocation under MCT § 3.1.3 character sizing governance.                                                                                  |
-| `:FenStringFixed`              | `{ #minSize 1 #maxSize 128 } :String`                    | $1 \dots 128$ chars                 | Variable  | Standard FEN representation requires at most 90 characters. Bounded to 128 characters to prevent unbounded memory allocation.                                                                                                                            |
-| `:PlayerName`                  | `{ #minSize 1 #maxSize 64 } :String`                     | $1 \dots 64$ chars                  | Variable  | Player names bounded to 64 UTF-8 characters.                                                                                                                                                                                                             |
-| `:MatchId`                     | `{ #minSize 1 #maxSize 64 } :String`                     | $1 \dots 64$ chars                  | Variable  | Match identifier bounded to 64 ASCII/UTF-8 characters.                                                                                                                                                                                                   |
+| Type Name                      | STVN Type                                            | Valid Range                         | Wire Bits | Engineering Rationale                                                                                                                                                                                                                                    |
+|:-------------------------------|:-----------------------------------------------------|:------------------------------------|:----------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `:Rank`                        | `{ #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int`   | $1 \dots 8$ ($[1, 9)$)              | 4 bits    | Standard chessboard ranks span 1 to 8. A 4-bit unsigned integer supports 16 states ($0 \dots 15$), tightly containing 8 ranks within a half-open discrete interval $[1, 9)$.                                                                             |
+| `:SquareIndex`                 | `{ #unsigned #size 6 } :Int`                         | $0 \dots 63$                        | 6 bits    | Linear board index across 64 squares without redundant `W003` bounds.                                                                                                                                                                                    |
+| `:AlgebraicSquare`             | `{ #regex "^[a-h][1-8]$" } :String`                  | `"a1"` to `"h8"`                    | Variable  | Two-character algebraic coordinate constrained by POSIX/ECMA anchor pattern.                                                                                                                                                                             |
+| `:HalfmovesSincePawnOrCapture` | `{ #unsigned #size 7 #maxExcl 101 } :Int`            | $0 \dots 100$ ($[0, 101)$)          | 7 bits    | FIDE Article 9.3 (50-move rule) triggers after 50 full moves (100 plies) without pawn move or capture. A 7-bit unsigned integer ($0 \dots 127$) precisely bounds the 100-ply limit within $[0, 101)$ without redundant `#minIncl 0`.                    |
+| `:TurnNumber`                  | `{ #unsigned #size 10 #minIncl 1 } :Int`             | $1 \dots 1023$                      | 10 bits   | Classical chess matches average 40–80 plies; the longest historical tournament match was 538 plies (Nikolić vs. Arsović, 1989). 10-bit unsigned integer ($0 \dots 1023$) provides 1.9x safety margin over the longest historical game.                    |
+| `:CentipawnEvaluation`         | `{ #size 16 } :Int`                                  | $-32,768 \dots 32,767$              | 16 bits   | Engine evaluations are expressed in centipawns ($100 = 1.0\text{ pawn}$). Positional advantages range between $\pm 1,500$; mate scores use sentinels ($\pm 10,000$). Factorized 16-bit signed integer covers all evaluations without allocating 32 bits. |
+| `:File`                        | `:Enum [8]`                                          | `#A` to `#H`                        | 3 bits    | 8 board files fit within a 3-bit discriminant.                                                                                                                                                                                                           |
+| `:Color`                       | `:Enum [2]`                                          | `#WHITE`, `#BLACK`                  | 1 bit     | 2 player colors fit in a single bit.                                                                                                                                                                                                                     |
+| `:PieceRole`                   | `:Enum [6]`                                          | `#PAWN` to `#KING`                  | 3 bits    | 6 piece roles fit in a 3-bit discriminant.                                                                                                                                                                                                               |
+| `:PromotionRole`               | `PieceRole` (Subset)                                 | `#KNIGHT` to `#QUEEN`               | 3 bits    | Nominal subset filtering (`#filterExcl [ #PAWN #KING ]`) excludes pawn and king, preserving root ordinals.                                                                                                                                               |
+| `:IsCapture`                   | `:Boolean`                                           | `#TRUE`, `#FALSE`                   | 1 bit     | Binary capture flag.                                                                                                                                                                                                                                     |
+| `:TerminalOutcome`             | `:Enum [3]`                                          | `#WHITE_WIN`, `#BLACK_WIN`, `#DRAW` | 2 bits    | 3 terminal outcome variants fit in 2 bits.                                                                                                                                                                                                               |
+| `:SanMoveString`               | `{ #minSize 1 #maxSize 8 } :String`                  | $1 \dots 8$ chars                   | Variable  | SAN moves require at most 7 characters (e.g., `exd8=Q#`). Bounded to 8 characters to prevent unbounded memory allocation under MCT § 3.1.3 character sizing governance.                                                                                  |
+| `:FenStringFixed`              | `{ #minSize 1 #maxSize 128 } :String`                | $1 \dots 128$ chars                 | Variable  | Standard FEN representation requires at most 90 characters. Bounded to 128 characters to prevent unbounded memory allocation.                                                                                                                            |
+| `:PlayerName`                  | `{ #minSize 1 #maxSize 64 } :String`                 | $1 \dots 64$ chars                  | Variable  | Player names bounded to 64 UTF-8 characters.                                                                                                                                                                                                             |
+| `:MatchId`                     | `{ #minSize 1 #maxSize 64 } :String`                 | $1 \dots 64$ chars                  | Variable  | Match identifier bounded to 64 ASCII/UTF-8 characters.                                                                                                                                                                                                   |
 
 ---
 
@@ -207,7 +206,7 @@ Quantitative wire size comparison executed across canonical matches using `Chess
 | JSON (Pretty)                   |  43,335 B   |  433.35 B   |        3,022 B        |     +79.9%      |
 | Raw Flat Binary (No Schema)     |   7,440 B   |   74.40 B   |        2,028 B        |     -17.3%      |
 
-> **Key Takeaway:** STVN Binary achieves a **~67.4% raw wire reduction over Compact JSON** and a **~79.9% reduction over Pretty JSON** while providing strong typed validation and cryptographic zero-trust CAS verification.
+> **Key Takeaway:** STVN Binary achieves a **~67.4% raw wire reduction over Compact JSON** and a **~79.9% reduction over Pretty JSON** while providing strong typed validation and cryptographic zero-trust schema verification.
 
 ---
 
@@ -230,10 +229,10 @@ The application provides a single unified entry point via `ChessCliApplication` 
 # 1. Simulate a validated chess match and serialize to Strategy 0x07 binary (.stvn_b)
 ./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=simulate game_output.stvn_b"
 
-# 2. Verify binary schema CAS hash integrity and inspect decoded metadata
+# 2. Verify binary schema SHA-256 hash integrity and inspect decoded metadata
 ./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=verify game_output.stvn_b"
 
-# 3. Simulate zero-trust attack (corrupt header hash byte) and assert exit code 2
+# 3. Simulate zero-trust attack (corrupt header hash byte 6) and assert exit code 2
 ./mvnw exec:java -D"exec.mainClass=org.stvnadore.chess.cli.ChessCliApplication" -D"exec.args=poison game_output.stvn_b"
 
 # 4. Execute multi-format wire benchmarking suite across historical and synthetic games
@@ -261,17 +260,17 @@ STVN enforces cryptographic schema pinning at the binary frame boundary using **
 +---------------------------------------------------------------------------------------------------+
 | Bytes 0..3   | Magic Header: ASCII "STVN" (0x53, 0x54, 0x56, 0x4E)                                |
 | Byte 4       | Control Byte: 0x87 (Bit 7 = CRC-32C, Bits 0..3 = Strategy 0x07 ExplicitSha256)     |
-| Byte 5       | MetaControlByte: 0x00 (#BODY without document metadata)                             |
-| Bytes 6..37  | 32-Byte SHA-256 Digest of canonical schema (64-char hex CAS identifier)            |
-| Bytes 38..N-4| Serialized Value Payload (Typed AST Nodes with bit-packed fields)                  |
+| Byte 5       | MetaControlByte: 0x00 (#BODY without document metadata)                            |
+| Bytes 6..37  | 32-Byte SHA-256 Digest of root :GameHistory StvnSchema (2e4b82fd...)               |
+| Bytes 38..N-4| Serialized Value Payload (Pure-IR StvnValue Nodes with bit-packed fields)          |
 | Bytes N-4..N | 4-Byte IEEE 802.3 CRC-32C Trailer                                                  |
 +---------------------------------------------------------------------------------------------------+
 ```
 
-When a client decodes a `.stvn_b` binary file:
+When a client decodes or opens a zero-copy flyweight reader on a `.stvn_b` binary file:
 
 1. `StvnBinaryDecoder.open()` reads the 38-byte header, processes Byte 5 `MetaControlByte`, and extracts the embedded SHA-256 digest at Bytes 6..37.
-2. The decoder computes the SHA-256 digest of the locally resolved schema.
+2. The decoder computes the SHA-256 digest of the locally resolved `:gaming/chess/GameHistory` pure-IR `StvnSchema` (`2e4b82fdf50c9245ecdbfda202af932dd86c8e1596c929f18c4760aa2698999a`), while repository `.stvn_cas.stvn` shards pin the flattened `#DEFS` CAS digest (`b5f53562247e08e093b75e795ea1f8e85d3c80cf297b4958f1fce718f07a5837`).
 3. If a single bit in the 32-byte digest differs, the decoder immediately halts and throws `PoisonedRegistryPayloadException`.
 4. Body bytes are never parsed if the header digest check fails.
 
@@ -337,11 +336,14 @@ The zero-dependency `PgnParser` imports standard FIDE PGN records into validated
 # Clean and compile with strict zero-warning enforcement (-Werror, -Xlint:all)
 ./mvnw clean compile
 
-# Execute complete test suite (Domain, Engine, Codec, CLI, Bench, and Fuzzing)
+# Execute complete test suite (Domain, Engine, Codec, Hygiene, Real-Repository E2E, and Fuzzing)
 ./mvnw test
 
 # Package executable JAR
 ./mvnw clean package
+
+# Execute release profile dry-run (strict Java 21 compilation + doclint=all Javadoc JAR)
+./mvnw clean compile javadoc:jar -Prelease
 ```
 
 ---
@@ -389,70 +391,10 @@ Please email: <jim.oflaherty.jr+sacrml@gmail.com>, letting us know what license 
 
 ## v2.0.0-SNAPSHOT
 
-- 2026.10.10
-- Modernized domain schema (`chess_turn.stvn_d`) to STVN 2.0.0 standards:
-  - Factorized compound scalar types into base types with metadata facets (`{ #unsigned #size <bits> } :Int`)
-  - Enforced discrete half-open intervals (`#minIncl 1 #maxExcl 9` for `:Rank`, `#minIncl 0 #maxExcl 101` for `:HalfmovesSincePawnOrCapture`)
-  - Applied string character cardinality bounds (`#minSize 1 #maxSize <N>`) without prohibited `#size` bit-width facets (MCT § 3.1.3)
-- Evaluated deterministic STVN 2.0.0 Content-Addressable Storage (CAS) SHA-256 digest: `630a9ad15763ea9b97240cb6417b23e1c7e45603f5a727ccd05181c511804fd6`
-- Established the Anti-Fragile Nominal AST Invariant:
-  - Replaced unchecked positional casting with `assertNominalSchema` verifying `ast.schema().aliasName()` across `:GameHistory`, `:TurnState`, `:Move`, and `:Square`
-  - Created typed `NominalSchemaMismatchException` pinning exact AST failure path and offending node
-- Hardened wire codec with Strategy `0x7` (`ExplicitSha256`), Byte 4 control byte `0x87`, 32-byte CAS header parity, and IEEE 802.3 CRC-32C trailer integrity
-- Verified FIDE canonical match round-trips: Opera Game (1858), Immortal Game (1851), and Kasparov vs Deep Blue (1997)
-- Upgraded build toolchain to `stvnadore-core:2.0.0-SNAPSHOT` under Java 21 LTS, `-Werror`, `-Xlint:all`, and javadoc `<failOnError>true</failOnError>`
-
-## v1.3.1
-
-- 2026.09.20
-- Synchronized ecosystem baseline with `stvnadore-core:1.3.1`
-
-## v1.3.0
-
-- 2026.09.17
-- Synchronized build descriptor to `stvnadore-core:1.3.0`
-- Added `-Xlint:-processing` to javac arguments to suppress annotation processor warnings under `-Werror`
-- Modernized canonical schema `chess_turn.gaming.stvn_d`:
-  - Enclosed definitions in package block `:package :org/stvnadore/chess { ... }`
-  - Eliminated unbounded `:String` types in favor of bounded nominal types (`:FenStringFixed :String128`, `:SanMoveString :String8`, `:PlayerName :String64`, `:MatchId :String64`)
-  - Guaranteed zero horizontal tab characters (`U+0009`) across schema definitions
-- Verified Content-Addressable Storage (CAS) SHA-256 digest: `39bab41f6b73910b99018ce4667b0ac8a0c80cbe4db8eb36f702812dcb6bacbb`
-- Transitioned domain model to Value-Oriented Programming (VOP):
-  - Introduced immutable product tuple record `CastlingRights`
-  - Refactored `BoardState` to encapsulate `CastlingRights` with backward-compatible delegators
-- Hardened ingress validation against horizontal tab characters with `ERR_TAB_CHARACTER_FORBIDDEN` test suite (`TabCharacterIngressTest`)
-- Hardened multi-game simulation test suite under Java 21 LTS virtual threads (`Executors.newVirtualThreadPerTaskExecutor()`)
-- Achieved 100% test pass rate (77 tests) with 0 compiler warnings under `-Werror` and 0 Javadoc warnings under doclint
-
-## v1.2.0
-
-- 2026.09.12
-- Integrated changes to `stvnadore-core`
-  - Standard prelude relocated to namespace `:org/stvnadore/prelude/*` and out of root, completely clearing the root namespace
-  - Atomic temporal primitives pruned to nominal prelude schemas
-  - Package enclosures (`:package`) with automatic LHS FQNI expansion
-  - Scoped `:use` with atomic unary `#strip` terminal slicing
-  - Hermetic flat payload tier (`.stvn`) and canonical definitions schema tier (`.stvn_d`)
-  - Arbitrary bit-width integer overflow enforcement (BigInteger)
-  - Updated shared-fixtures conformance suite
-- Adapted schema resource validation to modular ANTLR4 `defsElement` parse tree productions
-- Verified CAS address invariance (`26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f`)
-- Verified 100% test passing across zero-copy binary wire codecs and multi-game simulation suites
-- Zero-copy binary Strategy `0x07` with CRC-32C trailer verified
-- FIDE engine rule isomorphism confirmed across full test harness
-
-## v1.1.1
-
-- 2026.09.07
-- Prohibited `"""->[TAG]` in favor of canonical `"""[TAG]` (strictly prohibited under Rule STR-04 / `E026` in 2.0.0)
-
-## v1.1.0
-
-- 2026.09.06
-- Implemented enum subset filtering with transitive chaining
-- Added Control Byte 4 bitwise partitioning (1:3:4) for CRC-32C, SchemaIdentityStrategy, and BinaryEncodingStrategy
-
-## v1.0.2
-
-- 2026.09.04
-- Initial release across all four repositories
+- 2026.10.31
+- Clean-sheet STVN 2.0.0 Pure-IR baseline (`stvnadore-core:2.0.0-SNAPSHOT`, `stvnadore-repository:2.0.0-SNAPSHOT`):
+  - Defined canonical chess domain schema (`src/main/resources/schemas/chess_turn.gaming.stvn_d`) with 5-tier decimal facet ordering, prefix metadata, discrete half-open intervals (`#minIncl` / `#maxExcl`), `:Tuple`, and zero `W003` tautological facets.
+  - Pinned root `:gaming/chess/GameHistory` Strategy `0x07` wire SHA-256 digest (`2e4b82fdf50c9245ecdbfda202af932dd86c8e1596c929f18c4760aa2698999a`) and flattened repository 2/64 `.stvn_cas.stvn` CAS SHA-256 digest (`b5f53562247e08e093b75e795ea1f8e85d3c80cf297b4958f1fce718f07a5837`).
+  - Migrated `ChessAstMapper` and `ChessBinaryCodec` exclusively to pure-IR (`StvnDocument`, `StvnDefsCatalog`, `StvnSchema`, `StvnValue`, `StvnMapper`, `StvnBinaryEncoder.encodeDefinitionsText`) with exact `BigInteger` perimeter narrowing (`intValueExact()`, `longValueExact()`) and zero ANTLR CST coupling.
+  - Enforced Anti-Fragile Nominal Schema verification (`NominalSchemaMismatchException`), Strategy `0x87` (`ExplicitSha256` + CRC-32C) fail-closed header verification, and Strategy `0x88` (`SelfDescribingSchema` `#DEFS` + CRC-32C) `.stvn_bd` repository publication.
+  - Verified FIDE canonical match round-trips (1858 Opera Game, 1851 Immortal Game, 1997 Kasparov vs. Deep Blue Game 6) and real in-process `SimpleSchemaRepositoryEngine` E2E integration under Java 21 LTS (`-Werror`, `-Xlint:all`, `doclint=all`).

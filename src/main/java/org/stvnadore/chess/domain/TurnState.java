@@ -30,7 +30,9 @@ public record TurnState(
       throw new IllegalArgumentException("turnNumber must be positive (>= 1): " + turnNumber);
     }
     if (evaluationCentipawns < Short.MIN_VALUE || evaluationCentipawns > Short.MAX_VALUE) {
-      throw new IllegalArgumentException("evaluationCentipawns must fit in Int16: " + evaluationCentipawns);
+      throw new IllegalArgumentException(
+          "evaluationCentipawns must fit in signed 16-bit integer [-32768, 32767]: "
+              + evaluationCentipawns);
     }
   }
 }

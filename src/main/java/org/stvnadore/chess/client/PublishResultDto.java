@@ -1,5 +1,7 @@
 package org.stvnadore.chess.client;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -8,24 +10,38 @@ import java.util.Objects;
  * @param schemaName the nominal schema identifier
  * @param shapeSignature canonical structural signature of the schema
  * @param casHash 64-character lowercase hexadecimal SHA-256 content address
+ * @param domain optional domain namespace declared in {@code :meta}
  * @param warningsCount count of non-blocking compiler warnings (such as W003) reported by repository
  */
 public record PublishResultDto(
     String schemaName,
     String shapeSignature,
     String casHash,
+    @Nullable String domain,
     int warningsCount
 ) {
 
   /**
-   * Backward-compatible constructor defaulting warningsCount to 0.
+   * Convenience constructor defaulting {@code domain} to {@code null} and {@code warningsCount} to {@code 0}.
    *
    * @param schemaName the nominal schema identifier
    * @param shapeSignature canonical structural signature of the schema
    * @param casHash 64-character lowercase hexadecimal SHA-256 content address
    */
   public PublishResultDto(String schemaName, String shapeSignature, String casHash) {
-    this(schemaName, shapeSignature, casHash, 0);
+    this(schemaName, shapeSignature, casHash, null, 0);
+  }
+
+  /**
+   * Convenience constructor defaulting {@code domain} to {@code null}.
+   *
+   * @param schemaName the nominal schema identifier
+   * @param shapeSignature canonical structural signature of the schema
+   * @param casHash 64-character lowercase hexadecimal SHA-256 content address
+   * @param warningsCount count of non-blocking compiler warnings
+   */
+  public PublishResultDto(String schemaName, String shapeSignature, String casHash, int warningsCount) {
+    this(schemaName, shapeSignature, casHash, null, warningsCount);
   }
 
   /**

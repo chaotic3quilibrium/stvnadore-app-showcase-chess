@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnVocabulary;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -17,8 +18,8 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Automated regression test asserting that zero raw typic, facet, or value-track
- * string literals exist in production code outside approved constant definitions.
+ * Automated architectural hygiene suite enforcing clean-sheet STVN 2.0.0 vocabulary,
+ * zero 1.x terminology or file extension remnants, and zero ANTLR CST coupling.
  */
 public class StvnChessVocabularyHygieneTest {
 
@@ -42,6 +43,7 @@ public class StvnChessVocabularyHygieneTest {
       StvnVocabulary.TYPE_ENUM,
 
       // Structural keywords
+      StvnVocabulary.KEYWORD_META,
       StvnVocabulary.KEYWORD_DEFS,
       StvnVocabulary.KEYWORD_TYPE,
       StvnVocabulary.KEYWORD_BODY,
@@ -81,16 +83,11 @@ public class StvnChessVocabularyHygieneTest {
       StvnVocabulary.FACET_KW_REGEX,
       StvnVocabulary.FACET_KW_FILTER_INCL,
       StvnVocabulary.FACET_KW_FILTER_EXCL,
-      StvnVocabulary.FACET_KW_STRIP,
-
-      // Obsolete 1.x compound tokens
-      ":Int32", ":Int64", ":Uint8", ":Uint16", ":Uint32", ":Uint64",
-      ":Float32", ":Float64", ":StringFixed", ":StringNonEmpty",
-      ":SeqNonEmpty", ":MapInv"
+      StvnVocabulary.FACET_KW_STRIP
   );
 
   @Test
-  @DisplayName("HYGIENE-CHESS-01: Zero raw typic, facet, or obsolete 1.x literals in src/main/java")
+  @DisplayName("HYGIENE-CHESS-01: Zero raw typic, facet, or structural keyword literals in src/main/java")
   void testZeroRawStringLiteralsInMainJava() throws IOException {
     Path mainSrc = Paths.get("src/main/java");
     List<String> violations = new ArrayList<>();
@@ -101,7 +98,7 @@ public class StvnChessVocabularyHygieneTest {
           .toList();
 
       for (Path file : javaFiles) {
-        List<String> lines = Files.readAllLines(file);
+        List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
         for (int i = 0; i < lines.size(); i++) {
           String line = lines.get(i).trim();
           if (line.startsWith("//") || line.startsWith("*") || line.startsWith("/*") || line.startsWith("import ")) {
@@ -117,7 +114,8 @@ public class StvnChessVocabularyHygieneTest {
                   literal.contains(" " + forbidden) ||
                   literal.contains(forbidden + "(") ||
                   literal.contains(forbidden + "[")) {
-                violations.add(file.getFileName() + ":" + (i + 1) + " contains raw literal: \"" + literal + "\" (violates token hygiene; use StvnVocabulary)");
+                violations.add(file.getFileName() + ":" + (i + 1)
+                    + " contains raw literal: \"" + literal + "\" (violates token hygiene; use StvnVocabulary)");
               }
             }
           }
@@ -125,6 +123,116 @@ public class StvnChessVocabularyHygieneTest {
       }
     }
 
-    assertTrue(violations.isEmpty(), "Found raw token string literals in src/main/java:\n" + String.join("\n", violations));
+    assertTrue(violations.isEmpty(),
+        "Found raw token string literals in src/main/java:\n" + String.join("\n", violations));
+  }
+
+  @Test
+  @DisplayName("HYGIENE-CHESS-02: Zero 1.x terminology, compound scalar tokens, or legacy extensions across src, docs, and README")
+  void testZeroLegacyTerminologyAndExtensions() throws IOException {
+    List<String> forbiddenLegacyTerms = List.of(
+        ":Product",
+        "StvnProduct",
+        ":MapEntry",
+        "#strict",
+        "#deprecated",
+        "#nonEmpty",
+        ".stvn_inclf",
+        ".stvn_incl",
+        ".stvn_bin",
+        ".stvn_f",
+        "stvnInclfContent",
+        "Uint4",
+        "Uint7",
+        "Uint10",
+        "Int16",
+        ":Int32",
+        ":Int64",
+        ":Uint8",
+        ":Uint16",
+        ":Uint32",
+        ":Uint64",
+        ":Float32",
+        ":Float64",
+        ":String8",
+        ":String64",
+        ":String128",
+        ":StringFixed",
+        ":StringNonEmpty",
+        ":SeqNonEmpty",
+        ":MapInv"
+    );
+
+    List<Path> scanTargets = new ArrayList<>();
+    try (Stream<Path> srcStream = Files.walk(Paths.get("src"))) {
+      srcStream.filter(Files::isRegularFile)
+          .filter(p -> !p.getFileName().toString().equals("StvnChessVocabularyHygieneTest.java"))
+          .forEach(scanTargets::add);
+    }
+    if (Files.isDirectory(Paths.get("docs"))) {
+      try (Stream<Path> docsStream = Files.walk(Paths.get("docs"))) {
+        docsStream.filter(Files::isRegularFile).forEach(scanTargets::add);
+      }
+    }
+    Path readme = Paths.get("README.md");
+    if (Files.isRegularFile(readme)) {
+      scanTargets.add(readme);
+    }
+
+    List<String> violations = new ArrayList<>();
+    for (Path file : scanTargets) {
+      List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+      for (int i = 0; i < lines.size(); i++) {
+        String line = lines.get(i);
+        for (String forbidden : forbiddenLegacyTerms) {
+          if (line.contains(forbidden)) {
+            violations.add(file + ":" + (i + 1) + " contains prohibited 1.x token: " + forbidden);
+          }
+        }
+        if (line.contains(".stvn_cas") && !line.contains(".stvn_cas.stvn")) {
+          violations.add(file + ":" + (i + 1) + " contains bare 1.x .stvn_cas extension");
+        }
+      }
+    }
+
+    assertTrue(violations.isEmpty(), "Found 1.x remnants:\n" + String.join("\n", violations));
+  }
+
+  @Test
+  @DisplayName("HYGIENE-CHESS-03: Zero ANTLR CST, parser, lowering, legacy AST, or StvnTypeResolver coupling across src/main and src/test")
+  void testZeroAntlrCstAndLegacyAstCoupling() throws IOException {
+    List<String> forbiddenSymbols = List.of(
+        "org.antlr.v4.runtime",
+        "org.stvnadore.core.parser",
+        "org.stvnadore.core.ast",
+        "org.stvnadore.core.lowering",
+        "StvnTypeResolver",
+        "stvnInclfContent",
+        ".stvn_inclf",
+        ".stvn_incl",
+        ".stvn_bin",
+        ".stvn_f"
+    );
+
+    List<String> violations = new ArrayList<>();
+    try (Stream<Path> stream = Files.walk(Paths.get("src"))) {
+      List<Path> files = stream.filter(Files::isRegularFile)
+          .filter(p -> !p.getFileName().toString().equals("StvnChessVocabularyHygieneTest.java"))
+          .toList();
+      for (Path file : files) {
+        List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        for (int i = 0; i < lines.size(); i++) {
+          String line = lines.get(i);
+          for (String forbidden : forbiddenSymbols) {
+            if (line.contains(forbidden)) {
+              violations.add(file + ":" + (i + 1) + " references prohibited symbol: " + forbidden);
+            }
+          }
+        }
+      }
+    }
+
+    assertTrue(violations.isEmpty(),
+        "Prohibited ANTLR CST or 1.x coupling detected:\n" + String.join("\n", violations));
   }
 }

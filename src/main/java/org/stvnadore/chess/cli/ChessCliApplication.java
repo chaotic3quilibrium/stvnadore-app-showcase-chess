@@ -119,6 +119,8 @@ public class ChessCliApplication {
     System.out.println("Matchup: " + sampleGame.whitePlayer() + " vs " + sampleGame.blackPlayer());
     System.out.println("Turns count: " + sampleGame.turns().size());
     System.out.println("Final Outcome: " + sampleGame.result().map(Enum::name).orElse("IN_PROGRESS"));
+    System.out.println("Root Schema Wire SHA-256: " + codec.getCasHashHex());
+    System.out.println("Repository Flattened CAS SHA-256: " + codec.getRepositoryCasHashHex());
 
     ByteBuffer binaryBuffer = codec.encode(sampleGame);
     byte[] binaryBytes = new byte[binaryBuffer.remaining()];
@@ -174,7 +176,7 @@ public class ChessCliApplication {
     byte[] originalBytes = Files.readAllBytes(inputPath);
     byte[] poisonedBytes = ChessBinaryCodec.poisonPayload(originalBytes);
 
-    System.out.println("Simulating zero-trust attack: Header SHA-256 hash corrupted at byte 5.");
+    System.out.println("Simulating zero-trust attack: Header SHA-256 hash corrupted at byte 6.");
     System.out.println("Attempting decode on poisoned payload...");
 
     try {

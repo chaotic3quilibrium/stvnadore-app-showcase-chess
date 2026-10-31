@@ -1,13 +1,17 @@
 package org.stvnadore.chess.client;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -17,6 +21,8 @@ public class ChessSchemaRegistryClient {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+  private static final TypeReference<List<CompileDiagnosticDto>> DIAGNOSTIC_LIST_TYPE =
+      new TypeReference<>() {};
 
   private final String baseUrl;
   private final HttpClient httpClient;
@@ -52,7 +58,7 @@ public class ChessSchemaRegistryClient {
    * @return raw canonical STVN schema text
    * @throws IOException if network transport fails
    * @throws InterruptedException if thread execution is interrupted
-   * @throws IllegalStateException if repository returns non-200 status code
+   * @throws SchemaRegistryException if repository returns a non-200 status code
    */
   public String fetchSchemaByCasHash(String casHash) throws IOException, InterruptedException {
     Objects.requireNonNull(casHash, "casHash must not be null");
@@ -70,21 +76,59 @@ public class ChessSchemaRegistryClient {
 
     HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     if (response.statusCode() != 200) {
-      throw new IllegalStateException("Failed to fetch schema for CAS hash " + casHash +
-          ". HTTP status: " + response.statusCode() + ", body: " + response.body());
+      throw buildRegistryException(
+          "Failed to fetch schema for CAS hash " + casHash,
+          response.statusCode(),
+          response.body()
+      );
     }
 
     return response.body();
   }
 
   /**
-   * Publishes a raw `.stvn_d` schema definition to the repository.
+   * Fetches a Strategy 0x08 ({@code .stvn_bd}) binary schema envelope by its 64-character SHA-256 CAS hash.
+   *
+   * @param casHash 64-character lowercase hex hash
+   * @return raw Strategy 0x08 binary schema bytes
+   * @throws IOException if network transport fails
+   * @throws InterruptedException if thread execution is interrupted
+   * @throws SchemaRegistryException if repository returns a non-200 status code
+   */
+  public byte[] fetchBinarySchemaByCasHash(String casHash) throws IOException, InterruptedException {
+    Objects.requireNonNull(casHash, "casHash must not be null");
+    if (casHash.length() != 64) {
+      throw new IllegalArgumentException("CAS hash must be exactly 64 hex characters: " + casHash);
+    }
+
+    URI uri = URI.create(baseUrl + "/api/v1/schemas/cas/" + casHash);
+    HttpRequest request = HttpRequest.newBuilder()
+        .uri(uri)
+        .timeout(timeout)
+        .header("Accept", "application/stvn-bin")
+        .GET()
+        .build();
+
+    HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+    if (response.statusCode() != 200) {
+      throw new SchemaRegistryException(
+          "Failed to fetch binary schema for CAS hash " + casHash + ". HTTP status: " + response.statusCode(),
+          response.statusCode(),
+          List.of()
+      );
+    }
+    return response.body();
+  }
+
+  /**
+   * Publishes a raw {@code .stvn_d} schema definition to the repository.
    *
    * @param schemaName the schema registration name
    * @param sourceText raw schema content
-   * @return parsed PublishResultDto response
+   * @return parsed {@link PublishResultDto} response
    * @throws IOException if network transport fails
    * @throws InterruptedException if thread execution is interrupted
+   * @throws SchemaRegistryException if repository rejects the schema
    */
   public PublishResultDto publishSchema(String schemaName, String sourceText) throws IOException, InterruptedException {
     Objects.requireNonNull(schemaName, "schemaName must not be null");
@@ -100,13 +144,19 @@ public class ChessSchemaRegistryClient {
 
     HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     if (response.statusCode() != 200 && response.statusCode() != 201) {
-      throw new IllegalStateException("Failed to publish schema '" + schemaName +
-          "'. HTTP status: " + response.statusCode() + ", body: " + response.body());
+      throw buildRegistryException(
+          "Failed to publish schema '" + schemaName + "'",
+          response.statusCode(),
+          response.body()
+      );
     }
 
     int warningsCount = extractWarningsCount(response);
     PublishResultDto parsed = OBJECT_MAPPER.readValue(response.body(), PublishResultDto.class);
-    return warningsCount > 0 ? new PublishResultDto(parsed.schemaName(), parsed.shapeSignature(), parsed.casHash(), warningsCount) : parsed;
+    return warningsCount > 0
+        ? new PublishResultDto(
+            parsed.schemaName(), parsed.shapeSignature(), parsed.casHash(), parsed.domain(), warningsCount)
+        : parsed;
   }
 
   /**
@@ -115,11 +165,13 @@ public class ChessSchemaRegistryClient {
    *
    * @param schemaName the schema registration name
    * @param binaryPayload raw binary payload bytes
-   * @return parsed PublishResultDto response
+   * @return parsed {@link PublishResultDto} response
    * @throws IOException if network transport fails
    * @throws InterruptedException if thread execution is interrupted
+   * @throws SchemaRegistryException if repository rejects the binary schema
    */
-  public PublishResultDto publishBinarySchema(String schemaName, byte[] binaryPayload) throws IOException, InterruptedException {
+  public PublishResultDto publishBinarySchema(String schemaName, byte[] binaryPayload)
+      throws IOException, InterruptedException {
     Objects.requireNonNull(schemaName, "schemaName must not be null");
     Objects.requireNonNull(binaryPayload, "binaryPayload must not be null");
 
@@ -133,13 +185,39 @@ public class ChessSchemaRegistryClient {
 
     HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     if (response.statusCode() != 200 && response.statusCode() != 201) {
-      throw new IllegalStateException("Failed to publish binary schema '" + schemaName +
-          "'. HTTP status: " + response.statusCode() + ", body: " + response.body());
+      throw buildRegistryException(
+          "Failed to publish binary schema '" + schemaName + "'",
+          response.statusCode(),
+          response.body()
+      );
     }
 
     int warningsCount = extractWarningsCount(response);
     PublishResultDto parsed = OBJECT_MAPPER.readValue(response.body(), PublishResultDto.class);
-    return warningsCount > 0 ? new PublishResultDto(parsed.schemaName(), parsed.shapeSignature(), parsed.casHash(), warningsCount) : parsed;
+    return warningsCount > 0
+        ? new PublishResultDto(
+            parsed.schemaName(), parsed.shapeSignature(), parsed.casHash(), parsed.domain(), warningsCount)
+        : parsed;
+  }
+
+  private static SchemaRegistryException buildRegistryException(
+      String prefix,
+      int statusCode,
+      @Nullable String body
+  ) {
+    List<CompileDiagnosticDto> diagnostics = List.of();
+    if (statusCode == 422 && body != null && body.trim().startsWith("[")) {
+      try {
+        diagnostics = OBJECT_MAPPER.readValue(body, DIAGNOSTIC_LIST_TYPE);
+      } catch (IOException ignored) {
+        diagnostics = List.of();
+      }
+    }
+    return new SchemaRegistryException(
+        prefix + ". HTTP status: " + statusCode + ", body: " + body,
+        statusCode,
+        diagnostics
+    );
   }
 
   private static int extractWarningsCount(HttpResponse<?> response) {

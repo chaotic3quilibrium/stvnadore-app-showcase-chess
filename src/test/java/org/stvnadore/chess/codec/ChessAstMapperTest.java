@@ -10,9 +10,12 @@ import org.stvnadore.chess.domain.Square;
 import org.stvnadore.chess.domain.TurnState;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
 
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +35,7 @@ public class ChessAstMapperTest {
   }
 
   @Test
-  @DisplayName("Lossless bi-directional AST mapping for all PromotionRole variants")
+  @DisplayName("Lossless bidirectional pure-IR mapping for all PromotionRole variants")
   void testPromotionRoleVariants() {
     for (Move.PromotionRole role : Move.PromotionRole.values()) {
       Move promoMove = new Move(Square.fromAlgebraic("e7"), Square.fromAlgebraic("e8"), Optional.of(role), false, 0);
@@ -49,7 +52,7 @@ public class ChessAstMapperTest {
   }
 
   @Test
-  @DisplayName("Lossless bi-directional AST mapping for all TerminalOutcome variants")
+  @DisplayName("Lossless bidirectional pure-IR mapping for all TerminalOutcome variants")
   void testTerminalOutcomeVariants() {
     for (GameHistory.TerminalOutcome outcome : GameHistory.TerminalOutcome.values()) {
       Move m = new Move(Square.fromAlgebraic("e2"), Square.fromAlgebraic("e4"), Optional.empty(), false, 0);
@@ -64,7 +67,7 @@ public class ChessAstMapperTest {
   }
 
   @Test
-  @DisplayName("Numeric bounds AST mapping for Halfmoves (0..100) and TurnNumber (1..1023)")
+  @DisplayName("Numeric bounds pure-IR mapping for Halfmoves (0..100) and TurnNumber (1..1023)")
   void testNumericBoundsMapping() {
     Move m0 = new Move(Square.fromAlgebraic("a2"), Square.fromAlgebraic("a3"), Optional.empty(), false, 0);
     TurnState turn1 = new TurnState(1, Piece.PieceColor.WHITE, m0, "fen1", -32768);
@@ -78,7 +81,7 @@ public class ChessAstMapperTest {
     assertTrue(doc.contains("1023"));
     assertTrue(doc.contains("100"));
 
-    StvnValue ast = StvnCompiler.compilePayload(doc, null, StvnParserConfig.SYSTEM_STRICT).orElseThrow();
+    StvnValue ast = StvnCompiler.compilePayload(doc, null, StvnParserConfig.STRICT).orElseThrow();
     GameHistory reconstructed = ChessAstMapper.fromStvnAst(ast);
 
     assertEquals(original, reconstructed);
@@ -99,6 +102,61 @@ public class ChessAstMapperTest {
 
     assertEquals(original, reconstructed);
     assertEquals(trickyName, reconstructed.whitePlayer());
+  }
+
+  @Test
+  @DisplayName("Literal backslash sequences (\\n, \\t, \\\\) survive pure-IR and canonical text round-trips without double-unescaping")
+  void testLiteralBackslashSequencesNotDoubleUnescaped() {
+    String literalBackslashes = "Grandmaster \\n Literal \\t Tab \\\\ Slash";
+    Move m = new Move(Square.fromAlgebraic("d2"), Square.fromAlgebraic("d4"), Optional.empty(), false, 0);
+    TurnState turn = new TurnState(1, Piece.PieceColor.WHITE, m, "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1", 15);
+    GameHistory original = new GameHistory(
+        "match-backslash-literal",
+        literalBackslashes,
+        "Opponent \\\"Quote\\\"",
+        List.of(turn),
+        Optional.empty()
+    );
+
+    StvnValue directValue = ChessAstMapper.toStvnAst(original, schemaContent);
+    assertEquals(original, ChessAstMapper.fromStvnAst(directValue));
+
+    String canonicalDoc = ChessAstMapper.toStvnDocument(original, schemaContent);
+    StvnValue reparsed = StvnCompiler.compilePayload(canonicalDoc, null, StvnParserConfig.STRICT).orElseThrow();
+    GameHistory reconstructed = ChessAstMapper.fromStvnAst(reparsed);
+    assertEquals(literalBackslashes, reconstructed.whitePlayer());
+    assertEquals("Opponent \\\"Quote\\\"", reconstructed.blackPlayer());
+  }
+
+  @Test
+  @DisplayName("Programmatic BigInteger exceeding 64-bit long / 32-bit int perimeter throws ArithmeticException via exact narrowing")
+  void testBigIntegerExactNarrowingRejectsOutOfRangeValues() {
+    Move m = new Move(Square.fromAlgebraic("e2"), Square.fromAlgebraic("e4"), Optional.empty(), false, 0);
+    TurnState turn = new TurnState(1, Piece.PieceColor.WHITE, m, "fen", 10);
+    GameHistory valid = new GameHistory("game-overflow", "White", "Black", List.of(turn), Optional.empty());
+
+    StvnDocument schemaDoc = ChessAstMapper.compileSchemaDocument(schemaContent);
+    StvnValue.StvnTuple root = (StvnValue.StvnTuple) ChessAstMapper.toStvnValue(valid, schemaDoc.defs());
+    StvnValue.StvnSeq turnsSeq = (StvnValue.StvnSeq) root.elements().get(3);
+    StvnValue.StvnTuple turnTuple = (StvnValue.StvnTuple) turnsSeq.elements().getFirst();
+    StvnSchema turnNumberSchema = turnTuple.elements().getFirst().schema();
+
+    BigInteger beyondInt64 = BigInteger.ONE.shiftLeft(80);
+    List<StvnValue> mutatedTurnSlots = List.of(
+        new StvnValue.StvnInt(turnNumberSchema, beyondInt64),
+        turnTuple.elements().get(1),
+        turnTuple.elements().get(2),
+        turnTuple.elements().get(3),
+        turnTuple.elements().get(4)
+    );
+    StvnValue.StvnTuple mutatedTurn = new StvnValue.StvnTuple(turnTuple.schema(), mutatedTurnSlots);
+    StvnValue.StvnSeq mutatedSeq = new StvnValue.StvnSeq(turnsSeq.schema(), List.of(mutatedTurn));
+    StvnValue.StvnTuple mutatedRoot = new StvnValue.StvnTuple(
+        root.schema(),
+        List.of(root.elements().get(0), root.elements().get(1), root.elements().get(2), mutatedSeq, root.elements().get(4))
+    );
+
+    assertThrows(ArithmeticException.class, () -> ChessAstMapper.fromStvnAst(mutatedRoot));
   }
 
   @Test
@@ -148,7 +206,7 @@ public class ChessAstMapperTest {
         }
         """;
 
-    StvnValue transposedAst = StvnCompiler.compilePayload(transposedSchema, null, StvnParserConfig.SYSTEM_STRICT)
+    StvnValue transposedAst = StvnCompiler.compilePayload(transposedSchema, null, StvnParserConfig.STRICT)
         .orElseThrow(() -> new IllegalStateException("Failed to compile transposed test document"));
 
     NominalSchemaMismatchException ex = assertThrows(

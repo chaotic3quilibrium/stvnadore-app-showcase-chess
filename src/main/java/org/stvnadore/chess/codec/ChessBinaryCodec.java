@@ -1,21 +1,26 @@
 package org.stvnadore.chess.codec;
 
 import org.stvnadore.chess.domain.GameHistory;
-import org.stvnadore.core.StvnCompiler;
-import org.stvnadore.core.StvnParserConfig;
-import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.StvnSchemaFlattener;
 import org.stvnadore.core.binary.SchemaIdentityStrategy;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
 import org.stvnadore.core.binary.StvnSchemaHasher;
 import org.stvnadore.core.binary.exceptions.PoisonedRegistryPayloadException;
 import org.stvnadore.core.binary.readers.StvnTupleReader;
+import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.ir.StvnDocumentKind;
+import org.stvnadore.core.ir.StvnDocumentMeta;
+import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
-import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.zip.CRC32C;
@@ -26,35 +31,51 @@ import java.util.zip.CRC32C;
 public class ChessBinaryCodec {
 
   private final String schemaSourceText;
-  private final ResolvedSchema resolvedSchema;
+  private final StvnDocument schemaDocument;
+  private final StvnSchema gameHistorySchema;
   private final byte[] expectedSha256Digest;
   private final String casHashHex;
+  private final String repositoryCasHashHex;
 
   /**
    * Constructs a codec by compiling and hashing the canonical schema source text.
    *
-   * @param schemaSourceText raw .stvn_d schema content
+   * @param schemaSourceText raw {@code .stvn_d} schema content
    */
   public ChessBinaryCodec(String schemaSourceText) {
     this.schemaSourceText = Objects.requireNonNull(schemaSourceText, "schemaSourceText must not be null");
-    
-    // Compile dummy document with schema to extract ResolvedSchema
-    String wrapperDoc = wrapSchemaWithDummyType(schemaSourceText);
-    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc, null, StvnParserConfig.STRICT)
-        .orElseThrow(() -> new IllegalStateException("Failed to compile schema definition"));
-    
-    this.resolvedSchema = sampleValue.schema();
-    this.expectedSha256Digest = StvnSchemaHasher.computeSha256(this.resolvedSchema);
+    this.schemaDocument = ChessAstMapper.compileSchemaDocument(schemaSourceText);
+    this.gameHistorySchema = ChessAstMapper.resolveGameHistorySchema(this.schemaDocument.defs());
+    this.expectedSha256Digest = StvnSchemaHasher.computeSha256(this.gameHistorySchema);
     this.casHashHex = HexFormat.of().formatHex(this.expectedSha256Digest);
+    this.repositoryCasHashHex = computeFlattenedRepositoryCasHash(this.schemaDocument, schemaSourceText);
   }
 
   /**
-   * Returns the 64-character lowercase hex CAS hash of this schema.
+   * Returns the 64-character lowercase hex SHA-256 wire digest of the root {@code :GameHistory} schema.
    *
    * @return 64-character hex hash string
    */
   public String getCasHashHex() {
     return casHashHex;
+  }
+
+  /**
+   * Returns the 64-character lowercase hex SHA-256 repository CAS digest of the flattened {@code .stvn_d} module.
+   *
+   * @return 64-character repository CAS hash string
+   */
+  public String getRepositoryCasHashHex() {
+    return repositoryCasHashHex;
+  }
+
+  /**
+   * Returns the resolved pure-IR {@link StvnSchema} for {@code :gaming/chess/GameHistory}.
+   *
+   * @return pure-IR root tuple schema
+   */
+  public StvnSchema getGameHistorySchema() {
+    return gameHistorySchema;
   }
 
   /**
@@ -67,7 +88,7 @@ public class ChessBinaryCodec {
   }
 
   /**
-   * Encodes a GameHistory domain record into an STVN binary byte buffer using Strategy 0x07
+   * Encodes a {@link GameHistory} domain record into an STVN binary byte buffer using Strategy 0x07
    * and appends a 4-byte CRC-32C trailer framing.
    *
    * @param game the game history to encode
@@ -76,40 +97,39 @@ public class ChessBinaryCodec {
   public ByteBuffer encode(GameHistory game) {
     Objects.requireNonNull(game, "game must not be null");
 
-    StvnValue ast = ChessAstMapper.toStvnAst(game, schemaSourceText);
+    StvnValue ast = ChessAstMapper.toStvnValue(game, gameHistorySchema);
     var strategy = new SchemaIdentityStrategy.ExplicitSha256(expectedSha256Digest);
     var encoder = new StvnBinaryEncoder(true, strategy, true);
     return encoder.encode(ast);
   }
 
   /**
-   * Encodes the canonical schema definition into an STVN binary byte buffer using Strategy 0x08
-   * (SelfDescribingSchema) with mandatory CRC-32C trailer framing for repository publication.
+   * Encodes the canonical {@code #DEFS} schema definition into an STVN {@code .stvn_bd} binary byte buffer
+   * using Strategy 0x08 ({@link SchemaIdentityStrategy.SelfDescribingSchema}) with CRC-32C trailer framing.
    *
    * @return read-only little-endian ByteBuffer containing binary schema envelope
    */
   public ByteBuffer encodeSchemaSelfDescribing() {
-    String wrapperDoc = wrapSchemaWithDummyType(schemaSourceText);
-    StvnValue sampleValue = StvnCompiler.compilePayload(wrapperDoc, null, StvnParserConfig.STRICT)
-        .orElseThrow(() -> new IllegalStateException("Failed to compile schema definition"));
-    var strategy = new SchemaIdentityStrategy.SelfDescribingSchema(wrapperDoc);
+    StvnDocumentMeta meta = schemaDocument.meta()
+        .orElseGet(() -> StvnDocumentMeta.ofKind(StvnDocumentKind.DEFS));
+    var strategy = new SchemaIdentityStrategy.SelfDescribingSchema(schemaSourceText);
     var encoder = new StvnBinaryEncoder(true, strategy, true);
-    return encoder.encode(sampleValue);
+    return encoder.encodeDefinitionsText(strategy.schemaSourceText(), meta);
   }
 
   /**
-   * Decodes an STVN binary byte buffer back into a GameHistory domain record.
-   * Enforces zero-trust schema validation via StvnBinaryDecoder.
+   * Decodes an STVN binary byte buffer back into a {@link GameHistory} domain record.
+   * Enforces zero-trust schema validation via {@link StvnBinaryDecoder}.
    *
    * @param buffer binary byte buffer
-   * @return unpacked GameHistory record
+   * @return unpacked {@link GameHistory} record
    * @throws PoisonedRegistryPayloadException if the binary header hash does not match the schema
    */
   public GameHistory decode(ByteBuffer buffer) {
     Objects.requireNonNull(buffer, "buffer must not be null");
 
-    var rootPointer = StvnBinaryDecoder.open(buffer, null, null, null);
-    StvnValue unpackedAst = StvnBinaryDecoder.unpack(rootPointer, Optional.of(resolvedSchema));
+    var rootPointer = StvnBinaryDecoder.open(buffer, null, gameHistorySchema, null);
+    StvnValue unpackedAst = StvnBinaryDecoder.unpack(rootPointer, Optional.of(gameHistorySchema));
 
     return ChessAstMapper.fromStvnAst(unpackedAst);
   }
@@ -119,18 +139,19 @@ public class ChessBinaryCodec {
    *
    * @param buffer binary byte buffer
    * @return a zero-copy {@link StvnTupleReader} for direct memory inspection
+   * @throws PoisonedRegistryPayloadException if the binary header hash does not match the schema
    */
   public StvnTupleReader openRootTuple(ByteBuffer buffer) {
     Objects.requireNonNull(buffer, "buffer must not be null");
-    var rootPointer = StvnBinaryDecoder.open(buffer);
-    return StvnBinaryDecoder.readRootTuple(rootPointer, Optional.of(resolvedSchema));
+    var rootPointer = StvnBinaryDecoder.open(buffer, null, gameHistorySchema, null);
+    return StvnBinaryDecoder.readRootTuple(rootPointer, Optional.of(gameHistorySchema));
   }
 
   /**
    * Injects corruption into a binary payload by flipping bytes in the SHA-256 header hash.
    *
    * @param validPayload original valid byte array
-   * @return corrupted byte array designed to trigger PoisonedRegistryPayloadException
+   * @return corrupted byte array designed to trigger {@link PoisonedRegistryPayloadException}
    */
   public static byte[] poisonPayload(byte[] validPayload) {
     Objects.requireNonNull(validPayload, "validPayload must not be null");
@@ -164,27 +185,24 @@ public class ChessBinaryCodec {
     return corrupted;
   }
 
-  private static String wrapSchemaWithDummyType(String schemaContent) {
-    int defsIdx = schemaContent.indexOf(StvnVocabulary.KEYWORD_DEFS);
-    int openBrace = schemaContent.indexOf('{', defsIdx);
-    int closeBrace = -1;
-    int depth = 0;
-    for (int i = openBrace; i < schemaContent.length(); i++) {
-      char c = schemaContent.charAt(i);
-      if (c == '{') depth++;
-      else if (c == '}') {
-        depth--;
-        if (depth == 0) {
-          closeBrace = i;
-          break;
-        }
-      }
+  private static String computeFlattenedRepositoryCasHash(StvnDocument schemaDoc, String sourceText) {
+    if (!schemaDoc.hasMeta()) {
+      return "";
     }
-    String defsBlock = schemaContent.substring(defsIdx, closeBrace + 1);
-    if (defsBlock.contains(StvnVocabulary.KEYWORD_PACKAGE + " :gaming/chess")) {
-      int lastBrace = defsBlock.lastIndexOf('}');
-      defsBlock = defsBlock.substring(0, lastBrace) + "  " + StvnVocabulary.KEYWORD_USE + " [ :gaming/chess { " + StvnVocabulary.FACET_KW_STRIP + " } ]\n  }";
+    try {
+      StvnDocumentMeta meta = schemaDoc.requireMeta();
+      String stem = meta.name().orElse("chess_turn");
+      String domainSuffix = meta.domain().map(d -> "." + d).orElse("");
+      String unitName = stem + domainSuffix + ".stvn_d";
+      String flattened = StvnSchemaFlattener.flatten(
+          Map.of(unitName, sourceText),
+          unitName
+      );
+      byte[] digest = MessageDigest.getInstance("SHA-256")
+          .digest(flattened.getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(digest);
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 MessageDigest unavailable", e);
     }
-    return "{\n  " + defsBlock + "\n  " + StvnVocabulary.KEYWORD_TYPE + " :GameHistory\n  " + StvnVocabulary.KEYWORD_BODY + " ( \"test\" \"white\" \"black\" [] " + StvnVocabulary.VAL_NONE + " )\n}";
   }
 }

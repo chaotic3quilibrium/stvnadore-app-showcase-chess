@@ -1,177 +1,178 @@
 package org.stvnadore.chess.integration;
 
 import io.javalin.Javalin;
-import org.junit.jupiter.api.AfterAll;
+import org.h2.jdbcx.JdbcDataSource;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.stvnadore.chess.bench.ChessWireBenchmarker;
 import org.stvnadore.chess.client.ChessSchemaRegistryClient;
+import org.stvnadore.chess.client.PublishResultDto;
 import org.stvnadore.chess.codec.ChessBinaryCodec;
 import org.stvnadore.chess.domain.GameHistory;
-import org.stvnadore.chess.domain.Move;
-import org.stvnadore.chess.domain.Piece;
-import org.stvnadore.chess.domain.Square;
-import org.stvnadore.chess.domain.TurnState;
+import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.exceptions.PoisonedRegistryPayloadException;
+import org.stvnadore.core.binary.readers.StvnTupleReader;
+import org.stvnadore.repository.SimpleSchemaRepositoryEngine;
+import org.stvnadore.repository.edge.SchemaPublishHandler;
+import org.stvnadore.repository.infrastructure.ConcurrentHashMapCache;
+import org.stvnadore.repository.infrastructure.DatabaseInitializer;
+import org.stvnadore.repository.infrastructure.FileSystemCasStorage;
+import org.stvnadore.repository.infrastructure.JdbcIndexRepository;
 
-import org.stvnadore.chess.client.PublishResultDto;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@DisplayName("Real-Repository E2E Integration: Publish .stvn_d & .stvn_bd, 2/64 CAS Fetch, and Strategy 0x07 Opera Game Wire Parity")
 public class ChessE2EIntegrationTest {
 
-  private static Javalin app;
-  private static String baseUrl;
+  private static final String EXPECTED_WIRE_SHA256 =
+      "2e4b82fdf50c9245ecdbfda202af932dd86c8e1596c929f18c4760aa2698999a";
+  private static final String EXPECTED_REPO_CAS_SHA256 =
+      "b5f53562247e08e093b75e795ea1f8e85d3c80cf297b4958f1fce718f07a5837";
+
   private static String schemaContent;
-  private static final Map<String, String> inMemoryCasStorage = new ConcurrentHashMap<>();
-  private static final Map<String, String> inMemoryRegistry = new ConcurrentHashMap<>();
+
+  @TempDir
+  Path tempCasDir;
+
+  private Javalin app;
+  private String baseUrl;
 
   @BeforeAll
-  static void startTestServer() throws Exception {
+  static void loadCanonicalSchema() throws Exception {
     try (InputStream is = ChessE2EIntegrationTest.class.getResourceAsStream("/schemas/chess_turn.gaming.stvn_d")) {
-      assertNotNull(is, "Schema resource must exist");
+      assertNotNull(is, "Schema resource /schemas/chess_turn.gaming.stvn_d must exist");
       schemaContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
     }
-
-    // Spin up lightweight in-process Javalin server matching repository routes
-    app = Javalin.create(config -> {}).start(0);
-    baseUrl = "http://localhost:" + app.port();
-
-    app.post("/api/v1/schemas/{name}", ctx -> {
-      String contentType = ctx.contentType();
-      if (contentType == null) {
-        ctx.status(415).json(Map.of("error", "Unsupported Media Type"));
-        return;
-      }
-      String lower = contentType.toLowerCase();
-      boolean isText = lower.startsWith("application/stvn");
-      boolean isBin = lower.startsWith("application/stvn-bin") || lower.startsWith("application/octet-stream");
-      if (!isText && !isBin) {
-        ctx.status(415).json(Map.of("error", "Unsupported Media Type"));
-        return;
-      }
-      String schemaName = ctx.pathParam("name");
-      String hashHex;
-      String bodyText;
-
-      if (isBin) {
-        byte[] bytes = ctx.bodyAsBytes();
-        assertTrue(bytes.length > 42, "Binary schema payload must be well-formed");
-        assertEquals((byte) 'S', bytes[0]);
-        assertEquals((byte) 'T', bytes[1]);
-        assertEquals((byte) 'V', bytes[2]);
-        assertEquals((byte) 'N', bytes[3]);
-        ChessBinaryCodec codec = new ChessBinaryCodec(schemaContent);
-        hashHex = codec.getCasHashHex();
-        bodyText = schemaContent;
-      } else {
-        bodyText = ctx.body();
-        ChessBinaryCodec codec = new ChessBinaryCodec(bodyText);
-        hashHex = codec.getCasHashHex();
-      }
-
-      inMemoryCasStorage.putIfAbsent(hashHex, bodyText);
-      inMemoryRegistry.put(schemaName, hashHex);
-
-      if (bodyText != null && (bodyText.contains("#maxExcl 64") || bodyText.contains("#minIncl 0"))) {
-        ctx.header("X-STVN-Warnings-Count", "1");
-      }
-
-      ctx.status(201).json(Map.of(
-          "schemaName", schemaName,
-          "shapeSignature", "sha256:" + hashHex.substring(0, 16),
-          "casHash", hashHex
-      ));
-    });
-
-    app.get("/api/v1/schemas/cas/{hash}", ctx -> {
-      String hash = ctx.pathParam("hash");
-      String payload = inMemoryCasStorage.get(hash);
-      if (payload != null) {
-        ctx.contentType("application/stvn").result(payload);
-      } else {
-        ctx.status(404);
-      }
-    });
   }
 
-  @AfterAll
-  static void stopTestServer() {
+  @BeforeEach
+  void startRealRepositoryServer() {
+    JdbcDataSource dataSource = new JdbcDataSource();
+    dataSource.setURL("jdbc:h2:mem:chess_e2e_repo_" + UUID.randomUUID() + ";MODE=PostgreSQL;DB_CLOSE_DELAY=-1");
+    DatabaseInitializer.initialize(dataSource, true);
+
+    FileSystemCasStorage casStorage = new FileSystemCasStorage(tempCasDir);
+    JdbcIndexRepository indexRepository = new JdbcIndexRepository(dataSource);
+    ConcurrentHashMapCache catalogCache = new ConcurrentHashMapCache();
+    SimpleSchemaRepositoryEngine engine = new SimpleSchemaRepositoryEngine(casStorage, indexRepository, catalogCache);
+    SchemaPublishHandler handler = new SchemaPublishHandler(engine, casStorage);
+
+    app = Javalin.create();
+    handler.configureRoutes(app);
+    app.start(0);
+    baseUrl = "http://localhost:" + app.port();
+  }
+
+  @AfterEach
+  void stopRealRepositoryServer() {
     if (app != null) {
       app.stop();
     }
   }
 
   @Test
-  @DisplayName("Full E2E Pipeline: Publish schema, fetch via CAS hash, encode turns with ExplicitSha256, verify poison rejection")
+  @DisplayName("Full E2E Pipeline: Publish chess_turn.gaming.stvn_d to real repository, fetch via 2/64 CAS hash, encode 33-ply Opera Game, and reject poisoned headers")
   void testFullEndToEndPipeline() throws Exception {
     ChessSchemaRegistryClient client = new ChessSchemaRegistryClient(baseUrl);
+    ChessBinaryCodec localCodec = new ChessBinaryCodec(schemaContent);
+    assertEquals(EXPECTED_WIRE_SHA256, localCodec.getCasHashHex());
+    assertEquals(EXPECTED_REPO_CAS_SHA256, localCodec.getRepositoryCasHashHex());
 
-    // 1. Publish Schema to Registry
-    PublishResultDto publishResult = client.publishSchema("chess-turn-schema", schemaContent);
+    // 1. Publish .stvn_d Schema to Real Repository Engine
+    PublishResultDto publishResult = client.publishSchema("chess_turn.gaming.stvn_d", schemaContent);
     assertNotNull(publishResult);
-    assertEquals("chess-turn-schema", publishResult.schemaName());
-    assertNotNull(publishResult.casHash());
+    assertEquals("chess_turn.gaming.stvn_d", publishResult.schemaName());
+    assertEquals("gaming", publishResult.domain());
+    assertEquals(localCodec.getRepositoryCasHashHex(), publishResult.casHash());
     assertEquals(0, publishResult.warningsCount());
 
-    // 1b. Publish Tautological Schema (Verifies W003 Header & Invariant 6 Parity)
-    String tautSchema = schemaContent.replace(
-        ":SquareIndex      { #unsigned #size 6 } :Int",
-        ":SquareIndex      { #unsigned #size 6 #maxExcl 64 } :Int"
+    Path casShardPath = tempCasDir
+        .resolve(publishResult.casHash().substring(0, 2))
+        .resolve(publishResult.casHash() + ".stvn_cas.stvn");
+    assertTrue(Files.isRegularFile(casShardPath), "2/64 .stvn_cas.stvn shard must exist on disk");
+
+    // 2. Fetch Flattened Canonical Schema by Repository CAS Hash
+    String fetchedCanonicalSchema = client.fetchSchemaByCasHash(publishResult.casHash());
+    assertNotNull(fetchedCanonicalSchema);
+
+    ChessBinaryCodec remoteCodec = new ChessBinaryCodec(fetchedCanonicalSchema);
+    assertEquals(EXPECTED_WIRE_SHA256, remoteCodec.getCasHashHex(),
+        "Codec hydrated from repository flattened .stvn_d must compute identical Strategy 0x07 wire SHA-256");
+
+    // 3. Encode and Decode Morphy's 33-Ply 1858 Opera Game Across Local and Remote Codecs
+    GameHistory operaGame = ChessWireBenchmarker.getOperaGame();
+    assertEquals(33, operaGame.turns().size());
+
+    ByteBuffer localEncoded = localCodec.encode(operaGame);
+    ByteBuffer remoteEncoded = remoteCodec.encode(operaGame);
+
+    byte[] localBytes = new byte[localEncoded.remaining()];
+    localEncoded.duplicate().get(localBytes);
+    byte[] remoteBytes = new byte[remoteEncoded.remaining()];
+    remoteEncoded.duplicate().get(remoteBytes);
+    assertArrayEquals(localBytes, remoteBytes,
+        "Strategy 0x07 binary wire frames must be byte-for-byte identical between local and CAS-hydrated codecs");
+
+    assertEquals(operaGame, remoteCodec.decode(localEncoded.duplicate()));
+    assertEquals(operaGame, localCodec.decode(remoteEncoded.duplicate()));
+
+    // 4. Zero-Copy Flyweight Inspection Over Remote Codec
+    StvnTupleReader rootReader = remoteCodec.openRootTuple(remoteEncoded.duplicate());
+    assertEquals(5, rootReader.size());
+    assertEquals(operaGame.gameId(), rootReader.getString(0));
+    assertEquals(operaGame.whitePlayer(), rootReader.getString(1));
+    assertEquals(operaGame.blackPlayer(), rootReader.getString(2));
+
+    // 5. Corrupt Strategy 0x07 Header SHA-256 Digest and Assert Fail-Closed Rejection
+    byte[] poisonedBytes = ChessBinaryCodec.poisonPayload(remoteBytes);
+    assertThrows(
+        PoisonedRegistryPayloadException.class,
+        () -> remoteCodec.decode(ByteBuffer.wrap(poisonedBytes))
     );
-    PublishResultDto tautResult = client.publishSchema("chess-turn-taut", tautSchema);
-    assertNotNull(tautResult);
-    assertEquals(1, tautResult.warningsCount(), "Tautological publication must report warning header");
-    assertEquals(publishResult.casHash(), tautResult.casHash(), "CAS hash must converge under Invariant 6");
-
-    // 2. Fetch Schema by CAS Hash
-    ChessBinaryCodec localCodec = new ChessBinaryCodec(schemaContent);
-    String casHash = localCodec.getCasHashHex();
-
-    String fetchedSchemaText = client.fetchSchemaByCasHash(casHash);
-    assertNotNull(fetchedSchemaText);
-    assertEquals(schemaContent, fetchedSchemaText);
-
-    // 3. Encode Game History using Fetched Schema
-    ChessBinaryCodec remoteCodec = new ChessBinaryCodec(fetchedSchemaText);
-    Move move = new Move(Square.fromAlgebraic("g1"), Square.fromAlgebraic("f3"), Optional.empty(), false, 1);
-    TurnState turn = new TurnState(1, Piece.PieceColor.WHITE, move, "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 1 1", 40);
-    GameHistory game = new GameHistory("e2e-game-100", "Bot-A", "Bot-B", List.of(turn), Optional.of(GameHistory.TerminalOutcome.WHITE_WIN));
-
-    ByteBuffer binaryBuffer = remoteCodec.encode(game);
-    assertNotNull(binaryBuffer);
-
-    // 4. Decode and assert isomorphic equality
-    GameHistory decoded = remoteCodec.decode(binaryBuffer.duplicate());
-    assertEquals(game, decoded);
-
-    // 5. Corrupt payload and assert PoisonedRegistryPayloadException
-    byte[] validBytes = new byte[binaryBuffer.remaining()];
-    binaryBuffer.get(validBytes);
-    byte[] poisonedBytes = ChessBinaryCodec.poisonPayload(validBytes);
-
-    assertThrows(PoisonedRegistryPayloadException.class, () -> remoteCodec.decode(ByteBuffer.wrap(poisonedBytes)));
+    assertThrows(
+        PoisonedRegistryPayloadException.class,
+        () -> remoteCodec.openRootTuple(ByteBuffer.wrap(poisonedBytes))
+    );
   }
 
   @Test
-  @DisplayName("Binary schema publication: Encode schema via Strategy 0x08, publish binary payload, verify PublishResultDto")
+  @DisplayName("Binary Schema E2E: Encode Strategy 0x08 .stvn_bd, publish to real repository, fetch binary CAS envelope, and round-trip Opera Game")
   void testBinarySchemaPublication() throws Exception {
     ChessSchemaRegistryClient client = new ChessSchemaRegistryClient(baseUrl);
     ChessBinaryCodec localCodec = new ChessBinaryCodec(schemaContent);
+
     ByteBuffer binBuf = localCodec.encodeSchemaSelfDescribing();
     byte[] binBytes = new byte[binBuf.remaining()];
     binBuf.get(binBytes);
+    assertEquals((byte) 0x88, binBytes[4]);
 
-    PublishResultDto result = client.publishBinarySchema("chess-turn-bin-schema", binBytes);
+    PublishResultDto result = client.publishBinarySchema("chess_turn.gaming.stvn_bd", binBytes);
     assertNotNull(result);
-    assertEquals("chess-turn-bin-schema", result.schemaName());
-    assertNotNull(result.casHash());
+    assertEquals("chess_turn.gaming.stvn_bd", result.schemaName());
+    assertEquals("gaming", result.domain());
+    assertEquals(EXPECTED_REPO_CAS_SHA256, result.casHash());
+    assertEquals(0, result.warningsCount());
+
+    byte[] fetchedBinSchema = client.fetchBinarySchemaByCasHash(result.casHash());
+    var rootPtr = StvnBinaryDecoder.open(ByteBuffer.wrap(fetchedBinSchema));
+    String extractedDefsText = StvnBinaryDecoder.extractDefinitionsSource(rootPtr);
+
+    ChessBinaryCodec binHydratedCodec = new ChessBinaryCodec(extractedDefsText);
+    assertEquals(EXPECTED_WIRE_SHA256, binHydratedCodec.getCasHashHex());
+
+    GameHistory operaGame = ChessWireBenchmarker.getOperaGame();
+    ByteBuffer encodedOpera = binHydratedCodec.encode(operaGame);
+    assertEquals(operaGame, localCodec.decode(encodedOpera));
   }
 }
