@@ -167,6 +167,7 @@ public class StvnChessVocabularyHygieneTest {
     try (Stream<Path> srcStream = Files.walk(Paths.get("src"))) {
       srcStream.filter(Files::isRegularFile)
           .filter(p -> !p.getFileName().toString().equals("StvnChessVocabularyHygieneTest.java"))
+          .filter(p -> !p.getFileName().toString().equals("StvnVocabularyHygieneTest.java"))
           .forEach(scanTargets::add);
     }
     if (Files.isDirectory(Paths.get("docs"))) {
@@ -218,6 +219,7 @@ public class StvnChessVocabularyHygieneTest {
     try (Stream<Path> stream = Files.walk(Paths.get("src"))) {
       List<Path> files = stream.filter(Files::isRegularFile)
           .filter(p -> !p.getFileName().toString().equals("StvnChessVocabularyHygieneTest.java"))
+          .filter(p -> !p.getFileName().toString().equals("StvnVocabularyHygieneTest.java"))
           .toList();
       for (Path file : files) {
         List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);

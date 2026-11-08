@@ -19,6 +19,8 @@ import org.stvnadore.core.binary.readers.StvnTupleReader;
 import org.stvnadore.core.ir.StvnDocument;
 import org.stvnadore.core.ir.StvnDocumentKind;
 import org.stvnadore.core.ir.StvnDocumentMeta;
+import org.stvnadore.core.ir.StvnSchema;
+import org.stvnadore.core.ir.StvnSchema.PoisonedSchema;
 import org.stvnadore.core.validation.MalformedPayloadException;
 
 import java.io.InputStream;
@@ -280,6 +282,54 @@ public class ChessBinaryCodecTest {
     assertTrue(rankOffset > 0, "Offending token 9 must exist in document");
     assertEquals(rankOffset + 1, ex.startOffset(), "Error startOffset must pin exactly to token '9'");
     assertEquals(rankOffset + 2, ex.endOffset(), "Error endOffset must cover token length 1");
+  }
+
+  @Test
+  @DisplayName("VOP § 7.3.5: Grounded vs. Ungrounded PoisonedSchema contract and Pass 3 per-slot :body fault isolation on chess schemas")
+  void testGroundedVsUngroundedPoisonedSchemaAndBodySlotFaultIsolation() {
+    String doc = """
+        {
+          :meta { #name "chess_poisoned_vop" #domain "gaming" #kind #BODY }
+          :defs {
+            :package :gaming/chess {
+              :BrokenRank { #unsigned #size 4 #minIncl 10 #maxExcl 5 } :Int
+              :UnresolvedClock :MissingClockType
+              :ValidRank { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int
+              :TurnProbe :Tuple( :BrokenRank :UnresolvedClock :ValidRank )
+            }
+            :use [ :gaming/chess { #strip } ]
+          }
+          :type :TurnProbe
+          :body ( "not-an-int-on-grounded-poisoned" "anything-on-ungrounded-poisoned" 9 )
+        }
+        """;
+
+    StvnCompilationResult<StvnDocument> result =
+        StvnCompiler.compile(doc, "chess_poisoned_vop.gaming.stvn", StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors());
+    StvnDocument compiledDoc = result.document().orElseThrow();
+
+    StvnSchema brokenRank = compiledDoc.defs().findType(":gaming/chess/BrokenRank").orElseThrow();
+    PoisonedSchema groundedPoisoned = assertInstanceOf(PoisonedSchema.class, brokenRank);
+    assertTrue(groundedPoisoned.isGrounded(), "BrokenRank with inverted bounds on :Int must be a Grounded PoisonedSchema");
+    assertFalse(groundedPoisoned.isUngrounded());
+    assertTrue(groundedPoisoned.bestEffortFallback().isPresent());
+
+    StvnSchema unresolvedClock = compiledDoc.defs().findType(":gaming/chess/UnresolvedClock").orElseThrow();
+    PoisonedSchema ungroundedPoisoned = assertInstanceOf(PoisonedSchema.class, unresolvedClock);
+    assertTrue(ungroundedPoisoned.isUngrounded(), "UnresolvedClock referencing missing type must be an Ungrounded PoisonedSchema");
+    assertFalse(ungroundedPoisoned.isGrounded());
+    assertTrue(ungroundedPoisoned.bestEffortFallback().isEmpty());
+
+    int bodyIdx = doc.indexOf(":body");
+    List<StvnDiagnostic> bodyConstraintErrors = result.diagnostics().stream()
+        .filter(d -> d.startOffset() >= bodyIdx)
+        .filter(d -> d.canonicalCode().equals(Optional.of("E012")))
+        .toList();
+    assertEquals(1, bodyConstraintErrors.size(),
+        "Pass 3 must suspend validation on poisoned tuple slots 0 and 1 while isolating E012 on healthy sibling slot 2 (9)");
+    int badRankOffset = doc.indexOf(" 9 )", bodyIdx) + 1;
+    assertEquals(badRankOffset, bodyConstraintErrors.getFirst().startOffset());
   }
 
   private static void assertSingleConstraintDiagnostic(String doc, String offendingToken) {

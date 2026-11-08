@@ -13,6 +13,7 @@ import org.stvnadore.chess.codec.ChessBinaryCodec;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.ir.StvnDocumentKind;
 import org.stvnadore.core.ir.StvnDocumentMeta;
+import org.stvnadore.core.printer.StvnSourceFormatter;
 import org.stvnadore.repository.SimpleSchemaRepositoryEngine;
 import org.stvnadore.repository.edge.SchemaPublishHandler;
 import org.stvnadore.repository.infrastructure.ConcurrentHashMapCache;
@@ -115,6 +116,33 @@ public class ChessSchemaRegistryClientTest {
 
     assertThrows(IllegalStateException.class, () ->
         client.fetchSchemaByCasHash("0000000000000000000000000000000000000000000000000000000000000000"));
+  }
+
+  @Test
+  @DisplayName("Client publishes multi-line metadataMap formatted chess_turn.gaming.stvn_d and converges on identical 2/64 CAS hash")
+  void testPublishMultiLineFormattedChessSchemaIdempotentCasConvergence() throws Exception {
+    ChessSchemaRegistryClient client = new ChessSchemaRegistryClient(baseUrl);
+
+    String multiLineInput = schemaContent.replace(
+        ":Rank             { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int",
+        """
+        :Rank {
+              #unsigned
+              #size 4
+              #minIncl 1
+              #maxExcl 9
+            } :Int"""
+    );
+    String formattedMultiLine = StvnSourceFormatter.format(multiLineInput);
+    assertTrue(formattedMultiLine.contains("#unsigned\n"));
+
+    PublishResultDto firstPublish = client.publishSchema("chess_turn.gaming.stvn_d", formattedMultiLine);
+    assertEquals(EXPECTED_REPO_CAS_HASH, firstPublish.casHash());
+    assertEquals(0, firstPublish.warningsCount());
+
+    PublishResultDto secondPublish = client.publishSchema("chess_turn.gaming.stvn_d", schemaContent);
+    assertEquals(EXPECTED_REPO_CAS_HASH, secondPublish.casHash());
+    assertEquals(0, secondPublish.warningsCount());
   }
 
   @Test

@@ -14,6 +14,7 @@ import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.StvnSchemaFlattener;
 import org.stvnadore.core.ir.StvnDocument;
 import org.stvnadore.core.ir.StvnDocumentKind;
+import org.stvnadore.core.printer.StvnSourceFormatter;
 
 import java.io.IOException;
 import java.net.URI;
@@ -341,5 +342,40 @@ public class SchemaResourceValidationTest {
 
     GameHistory decodedByClean = cleanCodec.decode(tautBuf.duplicate());
     assertEquals(game, decodedByClean, "Clean codec must decode payload encoded by tautological codec");
+  }
+
+  @Test
+  @DisplayName("Operation 1 StvnSourceFormatter preserves multi-line metadataMap blocks on chess_turn.gaming.stvn_d and converges CAS digests")
+  void testMultiLineFormattedChessSchemaPreservesMetadataAndConvergesCasHashes() throws Exception {
+    var resource = getClass().getResource("/schemas/chess_turn.gaming.stvn_d");
+    assertNotNull(resource, "Schema resource must exist");
+    String singleLineSchema = Files.readString(Paths.get(resource.toURI()), StandardCharsets.UTF_8);
+
+    String multiLineMetadataInput = singleLineSchema.replace(
+        ":Rank             { #unsigned #size 4 #minIncl 1 #maxExcl 9 } :Int",
+        """
+        :Rank {
+              #unsigned
+              #size 4
+              #minIncl 1
+              #maxExcl 9
+            } :Int"""
+    );
+
+    String formattedMultiLine = StvnSourceFormatter.format(multiLineMetadataInput);
+    assertTrue(formattedMultiLine.contains(":Rank {\n        #unsigned\n        #size 4\n        #minIncl 1\n        #maxExcl 9\n      } :Int"),
+        () -> "StvnSourceFormatter must preserve multi-line metadataMap block on :Rank:\n" + formattedMultiLine);
+
+    String formattedIdempotent = StvnSourceFormatter.format(formattedMultiLine);
+    assertEquals(formattedMultiLine, formattedIdempotent, "Multi-line metadataMap formatting must be idempotent");
+
+    StvnCompilationResult<StvnDocument> compiled =
+        StvnCompiler.compile(formattedMultiLine, CANONICAL_SCHEMA_FILENAME, StvnParserConfig.STRICT);
+    assertTrue(compiled.isSuccess(), "Formatted multi-line metadataMap schema must compile cleanly");
+    assertFalse(compiled.hasWarnings(), "Formatted multi-line metadataMap schema must emit zero warnings");
+
+    ChessBinaryCodec multiLineCodec = new ChessBinaryCodec(formattedMultiLine);
+    assertEquals(KNOWN_CANONICAL_CAS_HASH, multiLineCodec.getCasHashHex());
+    assertEquals(KNOWN_REPOSITORY_FLATTENED_CAS_HASH, multiLineCodec.getRepositoryCasHashHex());
   }
 }

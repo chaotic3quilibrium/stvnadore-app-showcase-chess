@@ -136,7 +136,7 @@ public final class PgnParser {
     Objects.requireNonNull(board, "board must not be null");
     Objects.requireNonNull(sanToken, "sanToken must not be null");
 
-    String clean = sanToken.replace("+", "").replace("#", "").replace("!", "").replace("?", "").trim();
+    String clean = stripSanAnnotations(sanToken);
     List<Move> legalMoves = MoveValidator.generateLegalMoves(board);
     Piece.PieceColor activeColor = board.activeColor();
 
@@ -248,6 +248,17 @@ public final class PgnParser {
       case 'K' -> Piece.PieceRole.KING;
       default -> throw new PgnParseException("Unknown piece identifier in SAN: " + c);
     };
+  }
+
+  private static String stripSanAnnotations(String sanToken) {
+    StringBuilder sb = new StringBuilder(sanToken.length());
+    for (int i = 0; i < sanToken.length(); i++) {
+      char c = sanToken.charAt(i);
+      if (c != '+' && c != '#' && c != '!' && c != '?') {
+        sb.append(c);
+      }
+    }
+    return sb.toString().trim();
   }
 
   private static Move.PromotionRole charToPromoRole(char c) {
